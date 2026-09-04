@@ -7,10 +7,14 @@ static class Program
     public static int Main()
     {
         Run("8-direction quantization", DirectionQuantization);
-        Run("single-finger long press and east swipe", SingleFingerGesture);
-        Run("two-finger centroid remains stable during release", TwoFingerGesture);
-        Run("movement before hold enters pass-through", EarlyMovementPassesThrough);
-        Run("disabled finger count passes through", DisabledFingerCountPassesThrough);
+        Run("long press arms before invocation", LongPressOnlyArms);
+        Run("single-finger armed swipe invokes east", SingleFingerGesture);
+        Run("armed release is a no-op", ArmedReleaseDoesNothing);
+        Run("two-finger chord waits for final finger", TwoFingerGesture);
+        Run("three-finger chord invokes from centroid", ThreeFingerGesture);
+        Run("movement before hold suppresses candidate", EarlyMovementSuppressesCandidate);
+        Run("disabled finger count is suppressed", DisabledFingerCountIsSuppressed);
+        Run("contact-set change after arm suppresses chord", ContactChangeAfterArmSuppressesChord);
         Console.WriteLine($"All {_passed} touch input tests passed.");
         return 0;
     }
@@ -22,6 +26,24 @@ static class Program
         Equal(4, TouchGestureRecognizer.QuantizeDirection(Math.PI / 2, 8), "south");
         Equal(6, TouchGestureRecognizer.QuantizeDirection(Math.PI, 8), "west");
         Equal(1, TouchGestureRecognizer.QuantizeDirection(-Math.PI / 4, 8), "north-east");
+    }
+
+    private static void LongPressOnlyArms()
+    {
+        TouchGestureRecognizer recognizer = CreateRecognizer();
+        DateTimeOffset start = DateTimeOffset.UtcNow;
+        int activated = 0;
+        recognizer.Activated += (_, _) => activated++;
+
+        recognizer.PointerDown(1, new TouchPoint(100, 100), start);
+        recognizer.Tick(start.AddMilliseconds(421));
+
+        Equal(TouchGesturePhase.Armed, recognizer.Phase, "phase after long press");
+        Equal(0, activated, "long press must not invoke wheel");
+
+        recognizer.PointerMove(1, new TouchPoint(120, 100), start.AddMilliseconds(430));
+        Equal(TouchGesturePhase.Armed, recognizer.Phase, "sub-threshold movement stays armed");
+        Equal(0, activated, "sub-threshold movement must not invoke wheel");
     }
 
     private static void SingleFingerGesture()
@@ -38,18 +60,39 @@ static class Program
         recognizer.PointerMove(1, new TouchPoint(150, 100), start.AddMilliseconds(440));
         recognizer.PointerUp(1, new TouchPoint(150, 100), start.AddMilliseconds(450));
 
-        True(activation.HasValue, "gesture should arm");
+        True(activation.HasValue, "gesture should invoke after armed movement");
         Equal(1, activation!.Value.FingerCount, "finger count");
         True(completion.HasValue && completion.Value.HasDirection, "direction should complete");
         Equal(2, completion!.Value.DirectionIndex, "east direction");
+    }
+
+    private static void ArmedReleaseDoesNothing()
+    {
+        TouchGestureRecognizer recognizer = CreateRecognizer();
+        DateTimeOffset start = DateTimeOffset.UtcNow;
+        int activated = 0;
+        int completed = 0;
+        recognizer.Activated += (_, _) => activated++;
+        recognizer.Completed += (_, _) => completed++;
+
+        recognizer.PointerDown(1, new TouchPoint(40, 40), start);
+        recognizer.Tick(start.AddMilliseconds(421));
+        Equal(TouchGesturePhase.Armed, recognizer.Phase, "armed phase");
+        recognizer.PointerUp(1, new TouchPoint(40, 40), start.AddMilliseconds(450));
+
+        Equal(TouchGesturePhase.Idle, recognizer.Phase, "release returns idle");
+        Equal(0, activated, "no invocation");
+        Equal(0, completed, "no completion");
     }
 
     private static void TwoFingerGesture()
     {
         TouchGestureRecognizer recognizer = CreateRecognizer();
         DateTimeOffset start = DateTimeOffset.UtcNow;
+        int activations = 0;
         int completions = 0;
         TouchGestureCompletion result = default;
+        recognizer.Activated += (_, _) => activations++;
         recognizer.Completed += (_, value) => { completions++; result = value; };
 
         recognizer.PointerDown(1, new TouchPoint(0, 0), start);
@@ -57,8 +100,15 @@ static class Program
         recognizer.Tick(start.AddMilliseconds(421));
         Equal(TouchGesturePhase.Holding, recognizer.Phase, "chord must wait from final finger down");
         recognizer.Tick(start.AddMilliseconds(441));
+        Equal(TouchGesturePhase.Armed, recognizer.Phase, "two-finger chord armed");
+        Equal(0, activations, "arming is not invocation");
+
         recognizer.PointerMove(1, new TouchPoint(0, 60), start.AddMilliseconds(450));
+        Equal(TouchGesturePhase.Armed, recognizer.Phase, "first contact move keeps centroid below threshold");
         recognizer.PointerMove(2, new TouchPoint(100, 60), start.AddMilliseconds(455));
+        Equal(TouchGesturePhase.Active, recognizer.Phase, "centroid movement invokes chord");
+        Equal(1, activations, "activation count");
+
         recognizer.PointerUp(1, new TouchPoint(0, 60), start.AddMilliseconds(460));
         Equal(0, completions, "first lift must not complete a two-finger chord");
         recognizer.PointerUp(2, new TouchPoint(100, 60), start.AddMilliseconds(470));
@@ -68,22 +118,42 @@ static class Program
         Equal(4, result.DirectionIndex, "south direction");
     }
 
-    private static void EarlyMovementPassesThrough()
+    private static void ThreeFingerGesture()
+    {
+        TouchGestureRecognizer recognizer = CreateRecognizer();
+        DateTimeOffset start = DateTimeOffset.UtcNow;
+        TouchGestureActivation? activation = null;
+        recognizer.Activated += (_, value) => activation = value;
+
+        recognizer.PointerDown(1, new TouchPoint(0, 0), start);
+        recognizer.PointerDown(2, new TouchPoint(30, 0), start.AddMilliseconds(10));
+        recognizer.PointerDown(3, new TouchPoint(60, 0), start.AddMilliseconds(20));
+        recognizer.Tick(start.AddMilliseconds(441));
+        Equal(TouchGesturePhase.Armed, recognizer.Phase, "three-finger chord armed");
+
+        recognizer.PointerMove(1, new TouchPoint(0, -50), start.AddMilliseconds(450));
+        recognizer.PointerMove(2, new TouchPoint(30, -50), start.AddMilliseconds(455));
+        recognizer.PointerMove(3, new TouchPoint(60, -50), start.AddMilliseconds(460));
+
+        True(activation.HasValue, "three-finger chord should invoke");
+        Equal(3, activation!.Value.FingerCount, "three-finger activation count");
+    }
+
+    private static void EarlyMovementSuppressesCandidate()
     {
         TouchGestureRecognizer recognizer = CreateRecognizer();
         DateTimeOffset start = DateTimeOffset.UtcNow;
         int activated = 0;
-        int passThrough = 0;
         recognizer.Activated += (_, _) => activated++;
-        recognizer.PassThroughStarted += (_, _) => passThrough++;
         recognizer.PointerDown(1, new TouchPoint(0, 0), start);
         recognizer.PointerMove(1, new TouchPoint(25, 0), start.AddMilliseconds(60));
-        Equal(TouchGesturePhase.PassThrough, recognizer.Phase, "phase");
+        Equal(TouchGesturePhase.Suppressed, recognizer.Phase, "phase");
         Equal(0, activated, "activation count");
-        Equal(1, passThrough, "pass-through count");
+        recognizer.PointerUp(1, new TouchPoint(25, 0), start.AddMilliseconds(80));
+        Equal(TouchGesturePhase.Idle, recognizer.Phase, "suppression clears after release");
     }
 
-    private static void DisabledFingerCountPassesThrough()
+    private static void DisabledFingerCountIsSuppressed()
     {
         TouchGestureRecognizer recognizer = CreateRecognizer();
         recognizer.EnableThreeFinger = false;
@@ -92,7 +162,23 @@ static class Program
         recognizer.PointerDown(2, new TouchPoint(20, 0), start);
         recognizer.PointerDown(3, new TouchPoint(40, 0), start);
         recognizer.Tick(start.AddMilliseconds(421));
-        Equal(TouchGesturePhase.PassThrough, recognizer.Phase, "disabled chord phase");
+        Equal(TouchGesturePhase.Suppressed, recognizer.Phase, "disabled chord phase");
+    }
+
+    private static void ContactChangeAfterArmSuppressesChord()
+    {
+        TouchGestureRecognizer recognizer = CreateRecognizer();
+        DateTimeOffset start = DateTimeOffset.UtcNow;
+        int activated = 0;
+        recognizer.Activated += (_, _) => activated++;
+
+        recognizer.PointerDown(1, new TouchPoint(0, 0), start);
+        recognizer.Tick(start.AddMilliseconds(421));
+        Equal(TouchGesturePhase.Armed, recognizer.Phase, "single finger armed");
+        recognizer.PointerDown(2, new TouchPoint(20, 0), start.AddMilliseconds(430));
+
+        Equal(TouchGesturePhase.Suppressed, recognizer.Phase, "contact change suppresses armed chord");
+        Equal(0, activated, "must not invoke stale chord");
     }
 
     private static TouchGestureRecognizer CreateRecognizer() => new()
