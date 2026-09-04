@@ -27,7 +27,7 @@ jobs:
       run: dotnet build WinPieGestures/WinPieGestures.csproj -c Release -p:Platform=x64 --no-restore
 
     - name: Publish Standalone Binary
-      run: dotnet publish WinPieGestures/WinPieGestures.csproj -c Release -r win-x64 -p:Platform=x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o bin/Standalone
+      run: dotnet publish WinPieGestures/WinPieGestures.csproj -c Release -r win-x64 -p:Platform=x64 -p:EnableMsixTooling=true --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o bin/Standalone
 
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
