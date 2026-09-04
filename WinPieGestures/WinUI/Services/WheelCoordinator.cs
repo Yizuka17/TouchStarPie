@@ -70,6 +70,13 @@ public sealed class WheelCoordinator : IDisposable
         }
     }
 
+    public void OnTouchCanceled(object? sender, EventArgs args)
+    {
+        _window.Hide();
+        _selectedIndex = -1;
+        _cancelled = false;
+    }
+
     public void Hide() => _window.Hide();
 
     public void Dispose()
