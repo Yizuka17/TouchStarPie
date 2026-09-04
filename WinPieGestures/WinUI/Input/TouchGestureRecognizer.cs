@@ -49,12 +49,14 @@ public enum TouchGesturePhase
     Idle,
     Holding,
     Armed,
-    PassThrough
+    Active,
+    Suppressed
 }
 
 /// <summary>
-/// Framework-independent multi-contact state machine. Direction zero is north and indices
-/// increase clockwise, matching StarPie's radial sector convention in screen coordinates.
+/// Framework-independent multi-contact state machine. A stable long press only arms the
+/// gesture; the wheel is invoked after the armed centroid moves past SwipeThreshold.
+/// Direction zero is north and indices increase clockwise in screen coordinates.
 /// </summary>
 public sealed class TouchGestureRecognizer
 {
@@ -68,13 +70,13 @@ public sealed class TouchGestureRecognizer
         }
 
         public uint Id { get; }
-        public TouchPoint Start { get; }
+        public TouchPoint Start { get; set; }
         public TouchPoint Current { get; set; }
     }
 
     private readonly Dictionary<uint, ContactState> _contacts = [];
     private DateTimeOffset _startedAt;
-    private TouchPoint _activationCenter;
+    private TouchPoint _armedCenter;
     private int _lockedFingerCount;
     private TouchGestureUpdate _lastUpdate;
     private bool _releasing;
@@ -96,32 +98,44 @@ public sealed class TouchGestureRecognizer
     public event EventHandler<TouchGestureActivation>? Activated;
     public event EventHandler<TouchGestureUpdate>? Updated;
     public event EventHandler<TouchGestureCompletion>? Completed;
-    public event EventHandler? PassThroughStarted;
+    public event EventHandler? Canceled;
     public event EventHandler? SessionEnded;
 
     public void PointerDown(uint pointerId, TouchPoint point, DateTimeOffset timestamp)
     {
-        if (Phase == TouchGesturePhase.Idle)
-        {
-            _startedAt = timestamp;
-            Phase = TouchGesturePhase.Holding;
-        }
-
         if (_contacts.ContainsKey(pointerId))
         {
             return;
         }
 
         _contacts[pointerId] = new ContactState(pointerId, point);
+        if (Phase == TouchGesturePhase.Idle)
+        {
+            Phase = TouchGesturePhase.Holding;
+            ResetHoldingBaseline(timestamp);
+            return;
+        }
+
         if (Phase == TouchGesturePhase.Holding)
         {
-            // A chord starts only after its final finger arrives. Without resetting the
-            // clock, a second or third finger added near the deadline could arm instantly.
-            _startedAt = timestamp;
+            if (_contacts.Count > 3)
+            {
+                EnterSuppressed();
+            }
+            else
+            {
+                // A multi-finger chord starts when the last finger arrives. Reset both the
+                // timer and movement baselines so an earlier finger cannot arm the chord.
+                ResetHoldingBaseline(timestamp);
+            }
+            return;
         }
-        if (_contacts.Count > 3 || Phase == TouchGesturePhase.Armed)
+
+        // Once armed, changing the contact set invalidates the chord. During an active
+        // wheel gesture this also closes the wheel rather than executing a stale direction.
+        if (Phase is TouchGesturePhase.Armed or TouchGesturePhase.Active)
         {
-            BeginPassThrough();
+            EnterSuppressed();
         }
     }
 
@@ -133,17 +147,32 @@ public sealed class TouchGestureRecognizer
         }
 
         contact.Current = point;
-        if (Phase == TouchGesturePhase.Holding &&
-            _contacts.Values.Any(value => value.Start.DistanceTo(value.Current) > HoldMovementTolerance))
+        if (Phase == TouchGesturePhase.Holding)
         {
-            BeginPassThrough();
+            if (_contacts.Values.Any(value => value.Start.DistanceTo(value.Current) > HoldMovementTolerance))
+            {
+                EnterSuppressed();
+                return;
+            }
+            Tick(timestamp);
+            return;
         }
-        else if (Phase == TouchGesturePhase.Armed && !_releasing)
+
+        if (Phase == TouchGesturePhase.Armed)
+        {
+            if (_contacts.Count != _lockedFingerCount)
+            {
+                EnterSuppressed();
+                return;
+            }
+            TryActivate();
+            return;
+        }
+
+        if (Phase == TouchGesturePhase.Active && !_releasing)
         {
             RaiseUpdate();
         }
-
-        Tick(timestamp);
     }
 
     public void PointerUp(uint pointerId, TouchPoint point, DateTimeOffset timestamp)
@@ -154,39 +183,64 @@ public sealed class TouchGestureRecognizer
         }
 
         contact.Current = point;
-        Tick(timestamp);
-        TouchGesturePhase phaseBeforeRemoval = Phase;
 
-        if (phaseBeforeRemoval == TouchGesturePhase.Armed && !_releasing)
+        if (Phase == TouchGesturePhase.Holding)
         {
-            RaiseUpdate();
-            _releasing = true;
-        }
-        else if (phaseBeforeRemoval == TouchGesturePhase.Holding)
-        {
-            // Mark short taps as pass-through while the original contacts are still available
-            // to the injection layer.
-            BeginPassThrough();
-            phaseBeforeRemoval = TouchGesturePhase.PassThrough;
-        }
-
-        _contacts.Remove(pointerId);
-        if (_contacts.Count != 0)
-        {
+            _contacts.Remove(pointerId);
+            if (_contacts.Count == 0)
+            {
+                Reset();
+            }
+            else
+            {
+                // Before arming, a changed chord becomes a fresh candidate.
+                ResetHoldingBaseline(timestamp);
+            }
             return;
         }
 
-        if (phaseBeforeRemoval == TouchGesturePhase.Armed)
+        if (Phase == TouchGesturePhase.Armed)
         {
-            Completed?.Invoke(this, new TouchGestureCompletion(
-                _lockedFingerCount,
-                _lastUpdate.Center,
-                _lastUpdate.Angle,
-                _lastUpdate.Distance,
-                _lastUpdate.DirectionIndex,
-                _lastUpdate.HasDirection));
+            // Holding still and lifting is intentionally a no-op.
+            _contacts.Remove(pointerId);
+            if (_contacts.Count == 0)
+            {
+                Reset();
+            }
+            else
+            {
+                EnterSuppressed();
+            }
+            return;
         }
-        Reset();
+
+        if (Phase == TouchGesturePhase.Active)
+        {
+            if (!_releasing)
+            {
+                RaiseUpdate();
+                _releasing = true;
+            }
+            _contacts.Remove(pointerId);
+            if (_contacts.Count == 0)
+            {
+                Completed?.Invoke(this, new TouchGestureCompletion(
+                    _lockedFingerCount,
+                    _lastUpdate.Center,
+                    _lastUpdate.Angle,
+                    _lastUpdate.Distance,
+                    _lastUpdate.DirectionIndex,
+                    _lastUpdate.HasDirection));
+                Reset();
+            }
+            return;
+        }
+
+        _contacts.Remove(pointerId);
+        if (_contacts.Count == 0)
+        {
+            Reset();
+        }
     }
 
     public void Tick(DateTimeOffset timestamp)
@@ -195,7 +249,11 @@ public sealed class TouchGestureRecognizer
         {
             return;
         }
-
+        if (_contacts.Values.Any(value => value.Start.DistanceTo(value.Current) > HoldMovementTolerance))
+        {
+            EnterSuppressed();
+            return;
+        }
         if ((timestamp - _startedAt).TotalMilliseconds < LongPressDelayMs)
         {
             return;
@@ -209,37 +267,66 @@ public sealed class TouchGestureRecognizer
             3 => EnableThreeFinger,
             _ => false
         };
-
         if (!enabled)
         {
-            BeginPassThrough();
+            EnterSuppressed();
             return;
         }
 
         _lockedFingerCount = fingerCount;
-        _activationCenter = CurrentCenter();
-        _lastUpdate = new TouchGestureUpdate(fingerCount, _activationCenter, 0, 0, -1, false);
+        _armedCenter = CurrentCenter();
+        _lastUpdate = new TouchGestureUpdate(fingerCount, _armedCenter, 0, 0, -1, false);
         Phase = TouchGesturePhase.Armed;
-        Activated?.Invoke(this, new TouchGestureActivation(fingerCount, _activationCenter));
     }
 
-    public void Cancel()
+    /// <summary>Suppress the current physical contact sequence until every finger is lifted.</summary>
+    public void Suppress()
     {
-        if (_contacts.Count > 0 && Phase is TouchGesturePhase.Holding or TouchGesturePhase.Armed)
-        {
-            BeginPassThrough();
-        }
         if (_contacts.Count == 0)
         {
             Reset();
+            return;
         }
+        EnterSuppressed();
+    }
+
+    /// <summary>Immediately abandons all tracked contacts, used when the raw input service stops.</summary>
+    public void Cancel()
+    {
+        if (Phase == TouchGesturePhase.Active)
+        {
+            Canceled?.Invoke(this, EventArgs.Empty);
+        }
+        Reset();
+    }
+
+    private void ResetHoldingBaseline(DateTimeOffset timestamp)
+    {
+        _startedAt = timestamp;
+        foreach (ContactState contact in _contacts.Values)
+        {
+            contact.Start = contact.Current;
+        }
+    }
+
+    private void TryActivate()
+    {
+        TouchPoint center = CurrentCenter();
+        if (center.DistanceTo(_armedCenter) < SwipeThreshold)
+        {
+            return;
+        }
+
+        Phase = TouchGesturePhase.Active;
+        Activated?.Invoke(this, new TouchGestureActivation(_lockedFingerCount, _armedCenter));
+        RaiseUpdate();
     }
 
     private void RaiseUpdate()
     {
         TouchPoint center = CurrentCenter();
-        double dx = center.X - _activationCenter.X;
-        double dy = center.Y - _activationCenter.Y;
+        double dx = center.X - _armedCenter.X;
+        double dy = center.Y - _armedCenter.Y;
         double distance = Math.Sqrt(dx * dx + dy * dy);
         double angle = Math.Atan2(dy, dx);
         bool hasDirection = distance >= SwipeThreshold;
@@ -249,24 +336,32 @@ public sealed class TouchGestureRecognizer
         Updated?.Invoke(this, _lastUpdate);
     }
 
-    private void BeginPassThrough()
+    private void EnterSuppressed()
     {
-        if (Phase == TouchGesturePhase.PassThrough)
+        if (Phase == TouchGesturePhase.Suppressed)
         {
             return;
         }
-        Phase = TouchGesturePhase.PassThrough;
-        PassThroughStarted?.Invoke(this, EventArgs.Empty);
+        if (Phase == TouchGesturePhase.Active)
+        {
+            Canceled?.Invoke(this, EventArgs.Empty);
+        }
+        Phase = TouchGesturePhase.Suppressed;
+        _releasing = false;
     }
 
     private void Reset()
     {
+        bool hadSession = Phase != TouchGesturePhase.Idle || _contacts.Count != 0;
         _contacts.Clear();
         Phase = TouchGesturePhase.Idle;
         _lockedFingerCount = 0;
         _releasing = false;
         _lastUpdate = default;
-        SessionEnded?.Invoke(this, EventArgs.Empty);
+        if (hadSession)
+        {
+            SessionEnded?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     private TouchPoint CurrentCenter() => TouchPoint.Center(_contacts.Values.Select(contact => contact.Current));
