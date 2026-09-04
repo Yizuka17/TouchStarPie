@@ -8,8 +8,10 @@ public enum GlobalTouchStatus
 {
     Disabled,
     Active,
+    // Kept for settings/UI compatibility with the earlier pointer-redirection preview.
     UiAccessRequired,
     RegistrationConflict,
+    RegistrationFailed,
     Error
 }
 
@@ -26,19 +28,22 @@ public sealed class GlobalTouchStatusChangedEventArgs : EventArgs
 }
 
 /// <summary>
-/// Receives globally redirected PT_TOUCH pointer messages in a non-activating message-only
-/// HWND. Windows permits registration only for a signed UIAccess process.
+/// Passive global touchscreen observer. Raw Input delivers HID reports to a message-only HWND
+/// while the original Windows pointer stream continues to its normal target untouched.
 /// </summary>
 public sealed class GlobalTouchService : IDisposable
 {
-    private const int ErrorAccessDenied = 5;
+    private readonly record struct RawContactKey(nint Device, uint ContactId);
+
     private readonly DispatcherQueueTimer _holdTimer;
     private readonly TouchGestureRecognizer _recognizer = new();
-    private readonly TouchPassthroughInjector _injector = new();
+    private readonly RawTouchHidParser _parser = new();
+    private readonly Dictionary<nint, Dictionary<uint, TouchPoint>> _deviceContacts = [];
+    private readonly Dictionary<RawContactKey, uint> _syntheticIds = [];
     private NativeTouchMethods.WindowProc? _windowProcedure;
     private nint _window;
     private string? _windowClassName;
-    private bool _gestureOwnsSequence;
+    private uint _nextSyntheticId = 1;
     private AppConfig _sceneConfig = new();
 
     public GlobalTouchService(DispatcherQueue dispatcherQueue)
@@ -46,21 +51,11 @@ public sealed class GlobalTouchService : IDisposable
         _holdTimer = dispatcherQueue.CreateTimer();
         _holdTimer.Interval = TimeSpan.FromMilliseconds(16);
         _holdTimer.IsRepeating = true;
-        _holdTimer.Tick += (_, _) =>
-        {
-            _recognizer.Tick(DateTimeOffset.UtcNow);
-        };
-        _recognizer.Activated += RecognizerOnActivated;
+        _holdTimer.Tick += (_, _) => _recognizer.Tick(DateTimeOffset.UtcNow);
+        _recognizer.Activated += (_, activation) => Activated?.Invoke(this, activation);
         _recognizer.Updated += (_, update) => Updated?.Invoke(this, update);
         _recognizer.Completed += (_, completion) => Completed?.Invoke(this, completion);
-        _recognizer.SessionEnded += (_, _) =>
-        {
-            if (_gestureOwnsSequence)
-            {
-                _gestureOwnsSequence = false;
-                _injector.Reset();
-            }
-        };
+        _recognizer.Canceled += (_, _) => Canceled?.Invoke(this, EventArgs.Empty);
     }
 
     public GlobalTouchStatus Status { get; private set; } = GlobalTouchStatus.Disabled;
@@ -69,6 +64,7 @@ public sealed class GlobalTouchService : IDisposable
     public event EventHandler<TouchGestureActivation>? Activated;
     public event EventHandler<TouchGestureUpdate>? Updated;
     public event EventHandler<TouchGestureCompletion>? Completed;
+    public event EventHandler? Canceled;
 
     public void Configure(AppConfig appConfig)
     {
@@ -81,9 +77,6 @@ public sealed class GlobalTouchService : IDisposable
         _recognizer.EnableOneFinger = config.EnableOneFinger;
         _recognizer.EnableTwoFinger = config.EnableTwoFinger;
         _recognizer.EnableThreeFinger = config.EnableThreeFinger;
-        // Global PT_TOUCH registration redirects the whole pointer type to this process.
-        // Streaming reinjection is therefore a safety invariant, not an optional mode.
-        config.PassThroughUnhandledTouch = true;
     }
 
     public GlobalTouchStatus SetEnabled(bool enabled)
@@ -106,23 +99,32 @@ public sealed class GlobalTouchService : IDisposable
         try
         {
             EnsureMessageWindow();
-            if (!NativeTouchMethods.RegisterPointerInputTarget(_window, NativeTouchMethods.PT_TOUCH))
+            NativeTouchMethods.RawInputDevice[] devices =
+            [
+                new NativeTouchMethods.RawInputDevice
+                {
+                    UsagePage = NativeTouchMethods.HID_USAGE_PAGE_DIGITIZER,
+                    Usage = NativeTouchMethods.HID_USAGE_DIGITIZER_TOUCH_SCREEN,
+                    Flags = NativeTouchMethods.RIDEV_INPUTSINK | NativeTouchMethods.RIDEV_DEVNOTIFY,
+                    TargetWindow = _window
+                }
+            ];
+            if (!NativeTouchMethods.RegisterRawInputDevices(
+                    devices,
+                    (uint)devices.Length,
+                    (uint)Marshal.SizeOf<NativeTouchMethods.RawInputDevice>()))
             {
                 int error = Marshal.GetLastWin32Error();
-                SetStatus(
-                    error == ErrorAccessDenied ? GlobalTouchStatus.UiAccessRequired : GlobalTouchStatus.RegistrationConflict,
-                    error == ErrorAccessDenied
-                        ? "系统级触摸需要已签名并安装到 Program Files 的 UIAccess 构建。"
-                        : $"触摸重定向注册失败（Win32 {error}），桌面上可能已有其他全局触摸目标。");
+                SetStatus(GlobalTouchStatus.RegistrationFailed, $"Raw Input 触摸注册失败（Win32 {error}）。");
                 return Status;
             }
 
             _holdTimer.Start();
-            SetStatus(GlobalTouchStatus.Active, "单指/双指/三指全局触摸触发已启用");
+            SetStatus(GlobalTouchStatus.Active, "Raw Input/HID 旁路监听已启用（单指/双指/三指）");
         }
         catch (Exception exception)
         {
-            AppLog.Error("Unable to start global touch service", exception);
+            AppLog.Error("Unable to start passive raw touch service", exception);
             SetStatus(GlobalTouchStatus.Error, exception.Message);
         }
         return Status;
@@ -131,19 +133,35 @@ public sealed class GlobalTouchService : IDisposable
     public void Stop()
     {
         _holdTimer.Stop();
-        _injector.CancelAll(canceled: false);
-        _recognizer.Cancel();
-        _injector.Reset();
         if (_window != 0)
         {
-            NativeTouchMethods.UnregisterPointerInputTarget(_window, NativeTouchMethods.PT_TOUCH);
+            NativeTouchMethods.RawInputDevice[] devices =
+            [
+                new NativeTouchMethods.RawInputDevice
+                {
+                    UsagePage = NativeTouchMethods.HID_USAGE_PAGE_DIGITIZER,
+                    Usage = NativeTouchMethods.HID_USAGE_DIGITIZER_TOUCH_SCREEN,
+                    Flags = NativeTouchMethods.RIDEV_REMOVE,
+                    TargetWindow = 0
+                }
+            ];
+            NativeTouchMethods.RegisterRawInputDevices(
+                devices,
+                (uint)devices.Length,
+                (uint)Marshal.SizeOf<NativeTouchMethods.RawInputDevice>());
         }
+
+        _recognizer.Cancel();
+        _deviceContacts.Clear();
+        _syntheticIds.Clear();
+        _parser.Reset();
         SetStatus(GlobalTouchStatus.Disabled, "全局触摸触发未启用");
     }
 
     public void Dispose()
     {
         Stop();
+        _parser.Dispose();
         if (_window != 0)
         {
             NativeTouchMethods.DestroyWindow(_window);
@@ -160,7 +178,7 @@ public sealed class GlobalTouchService : IDisposable
         }
 
         _windowProcedure = WindowProcedure;
-        _windowClassName = $"StarPie.TouchTarget.{Environment.ProcessId}";
+        _windowClassName = $"StarPie.RawTouchSink.{Environment.ProcessId}";
         NativeTouchMethods.WndClassEx windowClass = new()
         {
             Size = (uint)Marshal.SizeOf<NativeTouchMethods.WndClassEx>(),
@@ -178,7 +196,7 @@ public sealed class GlobalTouchService : IDisposable
         _window = NativeTouchMethods.CreateWindowEx(
             0x08000000, // WS_EX_NOACTIVATE
             _windowClassName,
-            "StarPie touch target",
+            "StarPie raw touch sink",
             0,
             0,
             0,
@@ -188,7 +206,6 @@ public sealed class GlobalTouchService : IDisposable
             0,
             windowClass.Instance,
             0);
-
         if (_window == 0)
         {
             throw new InvalidOperationException($"CreateWindowEx failed: {Marshal.GetLastWin32Error()}");
@@ -197,113 +214,120 @@ public sealed class GlobalTouchService : IDisposable
 
     private nint WindowProcedure(nint hwnd, uint message, nuint wParam, nint lParam)
     {
-        if (message is NativeTouchMethods.WM_POINTERDOWN or NativeTouchMethods.WM_POINTERUPDATE or NativeTouchMethods.WM_POINTERUP)
+        if (message == NativeTouchMethods.WM_INPUT)
         {
-            HandlePointerMessage(message, NativeTouchMethods.PointerIdFromWParam(wParam));
-            return 0;
+            if (_parser.TryParse(lParam, out RawTouchFrame frame))
+            {
+                HandleFrame(frame);
+            }
+            // WM_INPUT still goes through DefWindowProc so foreground raw-input cleanup rules
+            // remain correct even though StarPie normally receives it as RIM_INPUTSINK.
+            return NativeTouchMethods.DefWindowProc(hwnd, message, wParam, lParam);
         }
-        if (message == NativeTouchMethods.WM_POINTERCAPTURECHANGED)
+
+        if (message == NativeTouchMethods.WM_INPUT_DEVICE_CHANGE && wParam == NativeTouchMethods.GIDC_REMOVAL)
         {
-            _injector.CancelAll();
-            _recognizer.Cancel();
-            _injector.Reset();
-            _gestureOwnsSequence = false;
+            HandleDeviceRemoval(lParam);
             return 0;
         }
         return NativeTouchMethods.DefWindowProc(hwnd, message, wParam, lParam);
     }
 
-    private void HandlePointerMessage(uint message, uint pointerId)
+    private void HandleFrame(RawTouchFrame frame)
     {
-        if (!NativeTouchMethods.GetPointerInfo(pointerId, out NativeTouchMethods.PointerInfo info))
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        if (!_deviceContacts.TryGetValue(frame.Device, out Dictionary<uint, TouchPoint>? previous))
         {
-            return;
+            previous = [];
+            _deviceContacts[frame.Device] = previous;
+        }
+        Dictionary<uint, TouchPoint> current = frame.Contacts
+            .GroupBy(contact => contact.Id)
+            .ToDictionary(group => group.Key, group => group.Last().Point);
+
+        // Update contacts that remain present before applying contact-set changes. This makes
+        // a newly added second/third finger reset the hold baseline at the latest centroid.
+        foreach ((uint rawId, TouchPoint point) in current)
+        {
+            if (previous.ContainsKey(rawId) && TryGetSyntheticId(frame.Device, rawId, out uint syntheticId))
+            {
+                _recognizer.PointerMove(syntheticId, point, now);
+            }
         }
 
-        TouchPoint point = new(info.PixelLocation.X, info.PixelLocation.Y);
-        DateTimeOffset now = DateTimeOffset.UtcNow;
-        if (message == NativeTouchMethods.WM_POINTERDOWN)
+        foreach ((uint rawId, TouchPoint oldPoint) in previous.ToArray())
         {
+            if (current.ContainsKey(rawId))
+            {
+                continue;
+            }
+            if (TryGetSyntheticId(frame.Device, rawId, out uint syntheticId))
+            {
+                _recognizer.PointerUp(syntheticId, oldPoint, now);
+            }
+            _syntheticIds.Remove(new RawContactKey(frame.Device, rawId));
+        }
+
+        foreach ((uint rawId, TouchPoint point) in current)
+        {
+            if (previous.ContainsKey(rawId))
+            {
+                continue;
+            }
+
+            uint syntheticId = AllocateSyntheticId(frame.Device, rawId);
             bool beginsSequence = _recognizer.Phase == TouchGesturePhase.Idle;
-            _recognizer.PointerDown(pointerId, point, now);
+            _recognizer.PointerDown(syntheticId, point, now);
             if (beginsSequence && !ScenePolicy.IsGestureAllowed(_sceneConfig))
             {
-                _recognizer.Cancel();
-            }
-            if (!_gestureOwnsSequence)
-            {
-                EnsureInjected(_injector.Sync(_recognizer.Contacts));
-            }
-            return;
-        }
-
-        if (message == NativeTouchMethods.WM_POINTERUPDATE)
-        {
-            _recognizer.PointerMove(pointerId, point, now);
-            if (!_gestureOwnsSequence)
-            {
-                EnsureInjected(_injector.Sync(_recognizer.Contacts));
-            }
-            return;
-        }
-
-        // Capture the final physical position before the recognizer removes the contact.
-        _recognizer.PointerMove(pointerId, point, now);
-        IReadOnlyList<TouchContact> beforeUp = _recognizer.Contacts;
-        TouchGesturePhase phaseBeforeUp = _recognizer.Phase;
-        _recognizer.PointerUp(pointerId, point, now);
-
-        if (_gestureOwnsSequence || phaseBeforeUp == TouchGesturePhase.Armed)
-        {
-            return;
-        }
-
-        if (!_injector.IsActive)
-        {
-            if (!EnsureInjected(_injector.Sync(beforeUp)))
-            {
-                return;
+                _recognizer.Suppress();
             }
         }
-        if (!EnsureInjected(_injector.EndContact(pointerId, point, _recognizer.Contacts)))
+
+        previous.Clear();
+        foreach ((uint rawId, TouchPoint point) in current)
         {
-            return;
+            previous[rawId] = point;
         }
-        if (_recognizer.Phase == TouchGesturePhase.Idle)
+        if (previous.Count == 0)
         {
-            _injector.Reset();
+            _deviceContacts.Remove(frame.Device);
         }
     }
 
-    private void RecognizerOnActivated(object? sender, TouchGestureActivation activation)
+    private void HandleDeviceRemoval(nint device)
     {
-        // Normal touch has been mirrored since POINTERDOWN. Only now, after the complete
-        // long-press chord is recognized, cancel that mirrored stream and let StarPie own
-        // the remainder. This keeps ordinary taps, scrolling and pinch gestures live.
-        _gestureOwnsSequence = true;
-        _injector.CancelAll();
-        Activated?.Invoke(this, activation);
+        bool hadContacts = _deviceContacts.Remove(device);
+        foreach (RawContactKey key in _syntheticIds.Keys.Where(key => key.Device == device).ToArray())
+        {
+            _syntheticIds.Remove(key);
+        }
+        _parser.ForgetDevice(device);
+        if (hadContacts)
+        {
+            _recognizer.Cancel();
+        }
     }
 
-    private bool EnsureInjected(bool succeeded)
+    private uint AllocateSyntheticId(nint device, uint rawId)
     {
-        if (succeeded)
+        RawContactKey key = new(device, rawId);
+        if (_syntheticIds.TryGetValue(key, out uint existing))
         {
-            return true;
+            return existing;
         }
 
-        // Never leave PT_TOUCH redirected when passthrough cannot be guaranteed.
-        _holdTimer.Stop();
-        if (_window != 0)
+        uint id = _nextSyntheticId++;
+        if (id == 0)
         {
-            NativeTouchMethods.UnregisterPointerInputTarget(_window, NativeTouchMethods.PT_TOUCH);
+            id = _nextSyntheticId++;
         }
-        _recognizer.Cancel();
-        _injector.Reset();
-        _gestureOwnsSequence = false;
-        SetStatus(GlobalTouchStatus.Error, "触摸透传失败，已自动关闭全局捕获以恢复系统触摸。");
-        return false;
+        _syntheticIds[key] = id;
+        return id;
     }
+
+    private bool TryGetSyntheticId(nint device, uint rawId, out uint id) =>
+        _syntheticIds.TryGetValue(new RawContactKey(device, rawId), out id);
 
     private void SetStatus(GlobalTouchStatus status, string message)
     {

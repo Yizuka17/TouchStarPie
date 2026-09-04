@@ -22,8 +22,8 @@ public class TriggerConfig
 }
 
 /// <summary>
-/// Global touch trigger settings. Global redirection is opt-in because Windows requires
-/// a signed UIAccess build and redirects the selected pointer type to StarPie.
+/// Passive global touchscreen trigger settings. StarPie observes raw touchscreen HID reports
+/// in parallel with the normal Windows pointer pipeline and never redirects or reinjects touch.
 /// </summary>
 public sealed class TouchTriggerConfig
 {
@@ -35,18 +35,21 @@ public sealed class TouchTriggerConfig
 
 	public bool EnableThreeFinger { get; set; } = true;
 
-	/// <summary>Duration that all contacts must remain within the movement tolerance.</summary>
+	/// <summary>Duration that the complete finger chord must remain stable before it is armed.</summary>
 	public double LongPressDelayMs { get; set; } = 420.0;
 
-	/// <summary>Maximum pre-activation movement in physical pixels.</summary>
+	/// <summary>Maximum movement per contact while waiting for the long-press arm.</summary>
 	public double HoldMovementTolerance { get; set; } = 18.0;
 
-	/// <summary>Distance from the activation centroid before a direction is selected.</summary>
+	/// <summary>Centroid movement after arming required to invoke the wheel and select a direction.</summary>
 	public double SwipeThreshold { get; set; } = 34.0;
 
 	/// <summary>Number of direction slices used by touch gestures: 4 or 8.</summary>
 	public int DirectionCount { get; set; } = 8;
 
-	/// <summary>Keep unhandled touch usable by reinjecting it into the original desktop target.</summary>
+	/// <summary>
+	/// Legacy v2-preview compatibility flag. Passive Raw Input leaves native touch untouched, so
+	/// there is no passthrough/injection mode to enable or disable anymore.
+	/// </summary>
 	public bool PassThroughUnhandledTouch { get; set; } = true;
 }

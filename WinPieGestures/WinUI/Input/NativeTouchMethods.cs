@@ -4,27 +4,41 @@ namespace WinPieGestures.WinUI.Input;
 
 internal static class NativeTouchMethods
 {
-    internal const uint WM_POINTERUPDATE = 0x0245;
-    internal const uint WM_POINTERDOWN = 0x0246;
-    internal const uint WM_POINTERUP = 0x0247;
-    internal const uint WM_POINTERCAPTURECHANGED = 0x024C;
+    internal const uint WM_INPUT = 0x00FF;
+    internal const uint WM_INPUT_DEVICE_CHANGE = 0x00FE;
+    internal const nuint GIDC_ARRIVAL = 1;
+    internal const nuint GIDC_REMOVAL = 2;
 
-    internal const uint PT_TOUCH = 0x00000002;
+    internal const uint RID_INPUT = 0x10000003;
+    internal const uint RIDI_PREPARSEDDATA = 0x20000005;
+    internal const uint RIM_TYPEHID = 2;
 
-    internal const uint POINTER_FLAG_NEW = 0x00000001;
-    internal const uint POINTER_FLAG_INRANGE = 0x00000002;
-    internal const uint POINTER_FLAG_INCONTACT = 0x00000004;
-    internal const uint POINTER_FLAG_PRIMARY = 0x00002000;
-    internal const uint POINTER_FLAG_CANCELED = 0x00008000;
-    internal const uint POINTER_FLAG_DOWN = 0x00010000;
-    internal const uint POINTER_FLAG_UPDATE = 0x00020000;
-    internal const uint POINTER_FLAG_UP = 0x00040000;
+    internal const uint RIDEV_REMOVE = 0x00000001;
+    internal const uint RIDEV_INPUTSINK = 0x00000100;
+    internal const uint RIDEV_DEVNOTIFY = 0x00002000;
 
-    internal const uint TOUCH_MASK_CONTACTAREA = 0x00000001;
-    internal const uint TOUCH_MASK_ORIENTATION = 0x00000002;
-    internal const uint TOUCH_MASK_PRESSURE = 0x00000004;
+    internal const ushort HID_USAGE_PAGE_GENERIC = 0x01;
+    internal const ushort HID_USAGE_GENERIC_X = 0x30;
+    internal const ushort HID_USAGE_GENERIC_Y = 0x31;
+    internal const ushort HID_USAGE_PAGE_DIGITIZER = 0x0D;
+    internal const ushort HID_USAGE_DIGITIZER_TOUCH_SCREEN = 0x04;
+    internal const ushort HID_USAGE_DIGITIZER_TIP_SWITCH = 0x42;
+    internal const ushort HID_USAGE_DIGITIZER_CONTACT_ID = 0x51;
+    internal const ushort HID_USAGE_DIGITIZER_CONTACT_COUNT = 0x54;
 
-    internal const uint TOUCH_FEEDBACK_DEFAULT = 0x1;
+    internal const int HIDP_INPUT = 0;
+    internal const int HIDP_STATUS_SUCCESS = 0x00110000;
+    internal const int HIDP_CAPS_SIZE = 64;
+    internal const int HIDP_CAPS_NUMBER_INPUT_VALUE_CAPS_OFFSET = 48;
+    internal const int HIDP_VALUE_CAPS_SIZE = 72;
+
+    internal const int SM_CXSCREEN = 0;
+    internal const int SM_CYSCREEN = 1;
+    internal const int SM_XVIRTUALSCREEN = 76;
+    internal const int SM_YVIRTUALSCREEN = 77;
+    internal const int SM_CXVIRTUALSCREEN = 78;
+    internal const int SM_CYVIRTUALSCREEN = 79;
+
     internal static readonly nint HwndMessage = new(-3);
 
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]
@@ -48,52 +62,21 @@ internal static class NativeTouchMethods
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    internal struct NativePoint
+    internal struct RawInputDevice
     {
-        public int X;
-        public int Y;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    internal struct NativeRect
-    {
-        public int Left;
-        public int Top;
-        public int Right;
-        public int Bottom;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    internal struct PointerInfo
-    {
-        public uint PointerType;
-        public uint PointerId;
-        public uint FrameId;
-        public uint PointerFlags;
-        public nint SourceDevice;
+        public ushort UsagePage;
+        public ushort Usage;
+        public uint Flags;
         public nint TargetWindow;
-        public NativePoint PixelLocation;
-        public NativePoint HimetricLocation;
-        public NativePoint PixelLocationRaw;
-        public NativePoint HimetricLocationRaw;
-        public uint Time;
-        public uint HistoryCount;
-        public int InputData;
-        public uint KeyStates;
-        public ulong PerformanceCount;
-        public uint ButtonChangeType;
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    internal struct PointerTouchInfo
+    internal struct RawInputHeader
     {
-        public PointerInfo PointerInfo;
-        public uint TouchFlags;
-        public uint TouchMask;
-        public NativeRect Contact;
-        public NativeRect ContactRaw;
-        public uint Orientation;
-        public uint Pressure;
+        public uint Type;
+        public uint Size;
+        public nint Device;
+        public nint WParam;
     }
 
     [DllImport("user32.dll", EntryPoint = "RegisterClassExW", SetLastError = true, CharSet = CharSet.Unicode)]
@@ -126,23 +109,58 @@ internal static class NativeTouchMethods
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    internal static extern bool RegisterPointerInputTarget(nint hwnd, uint pointerType);
+    internal static extern bool RegisterRawInputDevices(
+        [In] RawInputDevice[] devices,
+        uint numberOfDevices,
+        uint sizeOfRawInputDevice);
 
     [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    internal static extern bool UnregisterPointerInputTarget(nint hwnd, uint pointerType);
+    internal static extern uint GetRawInputData(
+        nint rawInput,
+        uint command,
+        nint data,
+        ref uint size,
+        uint sizeOfRawInputHeader);
 
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    internal static extern bool GetPointerInfo(uint pointerId, out PointerInfo pointerInfo);
+    [DllImport("user32.dll", EntryPoint = "GetRawInputDeviceInfoW", SetLastError = true)]
+    internal static extern uint GetRawInputDeviceInfo(
+        nint device,
+        uint command,
+        nint data,
+        ref uint size);
 
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    internal static extern bool InitializeTouchInjection(uint maxCount, uint feedbackMode);
+    [DllImport("user32.dll")]
+    internal static extern int GetSystemMetrics(int index);
 
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    internal static extern bool InjectTouchInput(uint count, [In] PointerTouchInfo[] contacts);
+    [DllImport("hid.dll")]
+    internal static extern int HidP_GetCaps(nint preparsedData, nint capabilities);
 
-    internal static uint PointerIdFromWParam(nuint wParam) => (uint)(wParam & 0xFFFF);
+    [DllImport("hid.dll")]
+    internal static extern int HidP_GetValueCaps(
+        int reportType,
+        nint valueCapabilities,
+        ref ushort valueCapabilitiesLength,
+        nint preparsedData);
+
+    [DllImport("hid.dll")]
+    internal static extern int HidP_GetUsageValue(
+        int reportType,
+        ushort usagePage,
+        ushort linkCollection,
+        ushort usage,
+        out uint usageValue,
+        nint preparsedData,
+        nint report,
+        uint reportLength);
+
+    [DllImport("hid.dll")]
+    internal static extern int HidP_GetUsages(
+        int reportType,
+        ushort usagePage,
+        ushort linkCollection,
+        [Out] ushort[] usageList,
+        ref uint usageLength,
+        nint preparsedData,
+        nint report,
+        uint reportLength);
 }
