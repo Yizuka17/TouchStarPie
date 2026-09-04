@@ -21,13 +21,13 @@ jobs:
         dotnet-version: '8.0.x'
 
     - name: Restore Dependencies
-      run: dotnet restore WinPieGestures/WinPieGestures.csproj
+      run: dotnet restore WinPieGestures/WinPieGestures.csproj -p:Platform=x64
 
     - name: Build Solution (Release)
-      run: dotnet build WinPieGestures/WinPieGestures.csproj -c Release --no-restore
+      run: dotnet build WinPieGestures/WinPieGestures.csproj -c Release -p:Platform=x64 --no-restore
 
     - name: Publish Standalone Binary
-      run: dotnet publish WinPieGestures/WinPieGestures.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o bin/Standalone
+      run: dotnet publish WinPieGestures/WinPieGestures.csproj -c Release -r win-x64 -p:Platform=x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o bin/Standalone
 
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
