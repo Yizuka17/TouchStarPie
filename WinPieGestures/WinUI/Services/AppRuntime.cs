@@ -22,6 +22,7 @@ public sealed class AppRuntime : IDisposable
         Touch.Activated += Wheel.OnTouchActivated;
         Touch.Updated += Wheel.OnTouchUpdated;
         Touch.Completed += Wheel.OnTouchCompleted;
+        Touch.Canceled += Wheel.OnTouchCanceled;
         Mouse.Activated += Wheel.OnTouchActivated;
         Mouse.Updated += Wheel.OnTouchUpdated;
         Mouse.Completed += Wheel.OnTouchCompleted;
@@ -65,6 +66,7 @@ public sealed class AppRuntime : IDisposable
         Touch.Activated -= Wheel.OnTouchActivated;
         Touch.Updated -= Wheel.OnTouchUpdated;
         Touch.Completed -= Wheel.OnTouchCompleted;
+        Touch.Canceled -= Wheel.OnTouchCanceled;
         Mouse.Activated -= Wheel.OnTouchActivated;
         Mouse.Updated -= Wheel.OnTouchUpdated;
         Mouse.Completed -= Wheel.OnTouchCompleted;
