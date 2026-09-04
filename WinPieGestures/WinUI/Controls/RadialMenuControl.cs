@@ -172,9 +172,10 @@ public sealed class RadialMenuControl : Grid
         };
         FontIcon icon = new()
         {
-            Glyph = GlyphFor(action?.IconKey),
+            Glyph = ActionIconCatalog.Resolve(action),
+            FontFamily = new FontFamily(ActionIconCatalog.FontFamilyName),
             FontSize = Math.Clamp(action?.CustomIconSize ?? _config.SectorIconSize, 14, 32),
-            Foreground = new SolidColorBrush(foreground),
+            Foreground = new SolidColorBrush(ParseColor(action?.CustomTextColor, foreground)),
             HorizontalAlignment = HorizontalAlignment.Center
         };
         bool showIcon = !string.Equals(layout, "TextOnly", StringComparison.OrdinalIgnoreCase);
@@ -206,12 +207,9 @@ public sealed class RadialMenuControl : Grid
         {
             panel.Children.Add(icon);
         }
-        if (showText)
+        if (showText && !textAbove)
         {
-            if (!textAbove)
-            {
-                panel.Children.Add(text);
-            }
+            panel.Children.Add(text);
         }
         return panel;
     }
@@ -243,14 +241,7 @@ public sealed class RadialMenuControl : Grid
             SelectSector(-1);
             return;
         }
-        SelectSector(QuantizeSector(Math.Atan2(dy, dx), _sectorCount));
-    }
-
-    public static int QuantizeSector(double angle, int sectorCount)
-    {
-        double step = Math.Tau / sectorCount;
-        int index = (int)Math.Round((angle + Math.PI / 2) / step, MidpointRounding.AwayFromZero);
-        return ((index % sectorCount) + sectorCount) % sectorCount;
+        SelectSector(RadialSelectionMath.QuantizeMain(Math.Atan2(dy, dx), _sectorCount));
     }
 
     private static PathGeometry CreateAnnularSector(
@@ -292,25 +283,6 @@ public sealed class RadialMenuControl : Grid
 
     private static Point Polar(double centerX, double centerY, double radius, double angle) =>
         new(centerX + Math.Cos(angle) * radius, centerY + Math.Sin(angle) * radius);
-
-    private static string GlyphFor(string? iconKey) => iconKey?.ToLowerInvariant() switch
-    {
-        "copy" => "\uE8C8",
-        "paste" => "\uE77F",
-        "cut" => "\uE8C6",
-        "undo" => "\uE7A7",
-        "redo" => "\uE7A6",
-        "search" => "\uE721",
-        "save" => "\uE74E",
-        "lock" => "\uE72E",
-        "screenshot" => "\uE722",
-        "volumeup" => "\uE995",
-        "volumedown" => "\uE993",
-        "showdesktop" => "\uE7C4",
-        "terminal" => "\uE756",
-        "code" => "\uE943",
-        _ => "\uE945"
-    };
 
     private static Color ParseColor(string? value, Color fallback)
     {
