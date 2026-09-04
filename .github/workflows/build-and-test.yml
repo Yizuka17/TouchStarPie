@@ -20,6 +20,9 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
+    - name: Run Touch Input Tests
+      run: dotnet run --project tests/StarPie.WinUI.InputTests/StarPie.WinUI.InputTests.csproj -c Release
+
     - name: Restore Dependencies
       run: dotnet restore WinPieGestures/WinPieGestures.csproj -p:Platform=x64
 
