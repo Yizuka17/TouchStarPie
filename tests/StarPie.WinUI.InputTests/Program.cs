@@ -31,12 +31,11 @@ static class Program
 
     private static void SecondarySectorQuantization()
     {
-        // East is main sector 2 in the 8-way convention. Its 45-degree parent span is
-        // divided into four children from north-east side to south-east side.
-        Equal(0, RadialSelectionMath.QuantizeSub(-Math.PI / 8 + 0.01, 2, 8, 4), "east child 0");
-        Equal(1, RadialSelectionMath.QuantizeSub(-Math.PI / 16, 2, 8, 4), "east child 1");
-        Equal(2, RadialSelectionMath.QuantizeSub(Math.PI / 16, 2, 8, 4), "east child 2");
-        Equal(3, RadialSelectionMath.QuantizeSub(Math.PI / 8 - 0.01, 2, 8, 4), "east child 3");
+        // East is main sector 2. Sample the center of each of its four child slices.
+        Equal(0, RadialSelectionMath.QuantizeSub(-3 * Math.PI / 32, 2, 8, 4), "east child 0");
+        Equal(1, RadialSelectionMath.QuantizeSub(-Math.PI / 32, 2, 8, 4), "east child 1");
+        Equal(2, RadialSelectionMath.QuantizeSub(Math.PI / 32, 2, 8, 4), "east child 2");
+        Equal(3, RadialSelectionMath.QuantizeSub(3 * Math.PI / 32, 2, 8, 4), "east child 3");
     }
 
     private static void LongPressOnlyArms()
