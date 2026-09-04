@@ -7,11 +7,11 @@
 ### 轻量、快捷的 Windows 鼠标轮盘手势与效率工具
 **Lightweight, Fast & Configurable Radial Pie Menu for Windows 10 / 11**
 
-[![Release Version](https://img.shields.io/badge/Release-v1.4.3-2563EB.svg?style=flat-square&logo=github)](https://github.com/SoftBlack42/StarPie/releases)
-[![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011%20(x64)-0078D4.svg?style=flat-square&logo=windows)](https://microsoft.com/windows)
-[![.NET](https://img.shields.io/badge/.NET-8.0%20WPF-512BD4.svg?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
+[![Release Version](https://img.shields.io/badge/Preview-v2.0.0--preview.2-2563EB.svg?style=flat-square&logo=github)](https://github.com/SoftBlack42/StarPie/releases)
+[![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011%20(x64%20%7C%20ARM64)-0078D4.svg?style=flat-square&logo=windows)](https://microsoft.com/windows)
+[![.NET](https://img.shields.io/badge/.NET%208-WinUI%203-512BD4.svg?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-10B981.svg?style=flat-square)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-19%2F19%20Passed-success.svg?style=flat-square&logo=pytest)](tests/)
+[![Tests](https://img.shields.io/badge/Touch%20Core-5%2F5%20Passed-success.svg?style=flat-square&logo=dotnet)](tests/StarPie.WinUI.InputTests/)
 [![Language](https://img.shields.io/badge/Language-zh--CN%20%7C%20zh--TW%20%7C%20en%20%7C%20ja-8B5CF6.svg?style=flat-square)](#i18n)
 [![Co-Authored](https://img.shields.io/badge/Co--Authored%20with-AI%20Agent-6366F1.svg?style=flat-square&logo=openai)](#acknowledgements)
 
@@ -29,14 +29,18 @@
 
 ## <a id="intro"></a>📖 简介
 
-**StarPie (星盘)** 是一款专为 Windows 10 / 11 打造的轻量级鼠标轮盘手势（Radial / Pie Menu）效率工具。
+**StarPie (星盘)** 是一款专为 Windows 10 / 11 打造的原生 WinUI 3 鼠标与多指触摸轮盘（Radial / Pie Menu）效率工具。
 
 在日常使用或专业建模软件中，通过**按住鼠标右键滑动**，即可在光标所在位置呼出快捷轮盘。支持 4 / 8 / 12 方位动作映射、专属程序配置（Per-App Profiles）、快捷键录制、程序极速启动与多种视觉形态定制，帮助将高频操作转化为自然的肌肉记忆。
 
 > 💡 **设计重点**：
-> - **低资源占用**：基于原生 C# WPF 构建，无浏览器内核打包，后台常驻内存约 **3 ～ 5 MB**；
+> - **原生桌面 UI**：基于 .NET 8 + Windows App SDK / WinUI 3，无浏览器内核；
 > - **低延迟响应**：基于 Win32 `WH_MOUSE_LL` 底层事件流，响应迅速，不影响鼠标正常右键点击；
+> - **多指触摸**：支持单指/双指/三指长按后 4 向或 8 向划动命中；
+> - **系统风格**：轮盘与设置界面自动跟随深色/浅色模式和 Windows 强调色；
 > - **绿色便携**：提供独立单文件版（内置 .NET 运行时，解压即用），配置保存于本地 `config.json`；
+
+> ⚠️ **v2 预览说明**：主程序已切换为真 WinUI 3，触摸核心、轮盘、主题、鼠标触发与托盘已可用；v1.6.8 的部分高级配置面板仍在分阶段迁移。全桌面触摸需使用签名且安装在受信任位置的 UIAccess 发行包，详见 [WinUI 3 与触摸架构说明](docs/WINUI3_TOUCH.md)。
 
 <details open>
 <summary><b>🎬 演示视频 / Video Demo </b></summary>
@@ -163,7 +167,7 @@
 
 ## <a id="download"></a>🚀 快速开始与下载
 
-### 最新正式版本：`v1.4.2`
+### 最新稳定版：`v1.6.8` · WinUI 3 预览版：`v2.0.0-preview.2`
 
 | 版本包 | 适用场景 | 说明 | 下载入口 |
 | :--- | :--- | :--- | :--- |
@@ -196,9 +200,8 @@
 ## <a id="build"></a>🛠️ 本地构建与开发
 
 ### 环境要求
-- Windows 10 / 11 (x64)
+- Windows 10 / 11 (x64 / ARM64)
 - [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- Python 3.10+ (仅运行自动化测试套件需要)
 
 ### 编译与运行
 ```bash
@@ -206,20 +209,19 @@
 git clone https://github.com/SoftBlack42/StarPie.git
 cd StarPie
 
-# 2. 编译项目 (Release)
-dotnet build WinPieGestures/WinPieGestures.csproj -c Release
+# 2. 编译 WinUI 3 主程序 (Release x64)
+dotnet build WinPieGestures/WinPieGestures.csproj -c Release -p:Platform=x64
 
 # 3. 运行项目
-dotnet run --project WinPieGestures/WinPieGestures.csproj
+dotnet run --project WinPieGestures/WinPieGestures.csproj -p:Platform=x64
+
+# 4. 如需构建 v1.6.8 WPF 兼容基线
+dotnet build WinPieGestures/WinPieGestures.LegacyWpf.csproj -c Release
 ```
 
-### 运行自动化测试 (18/18 项全部通过 🟢)
+### 运行触摸核心测试 (5/5 通过 🟢)
 ```bash
-# 安装测试依赖
-pip install pytest pywinauto
-
-# 执行测试
-python -m pytest tests/test_settings.py -v
+dotnet run --project tests/StarPie.WinUI.InputTests/StarPie.WinUI.InputTests.csproj -c Release
 ```
 
 ---
@@ -229,21 +231,18 @@ python -m pytest tests/test_settings.py -v
 ```
 StarPie/
 ├── .github/                   # CI 工作流与社区配置文件
-├── WinPieGestures/            # 核心源码工程 (WPF / C# .NET 8)
-│   ├── ActionExecutor.cs      # 热键、程序启动与命令执行引擎
-│   ├── MouseHook.cs           # Win32 低级鼠标钩子管理
-│   ├── GestureController.cs   # 手势轨迹判定与状态机
-│   ├── StyleRendererFactory.cs# 轮盘形态渲染器工厂
-│   ├── I18n.cs                # 多语言字典
-│   ├── ConfigManager.cs       # 配置存储与热重载
-│   ├── MemoryOptimizer.cs     # 工作集内存管理
-│   ├── ProgramPickerWindow.xaml# 应用程序选择器
-│   ├── SettingsWindow.xaml    # 图形化设置控制台
-│   ├── RadialWindow.xaml      # 轮盘交互透明窗口
-│   └── app_icon.ico           # 应用图标
+├── WinPieGestures/            # .NET 8 桌面应用
+│   ├── WinPieGestures.csproj  # WinUI 3 主工程
+│   ├── WinPieGestures.LegacyWpf.csproj # v1.6.8 兼容基线
+│   └── WinUI/
+│       ├── Controls/RadialMenuControl.cs # WinUI 扇区轮盘
+│       ├── Input/             # 多指识别、全局触摸与回放
+│       ├── Services/          # 主题、配置、执行、托盘
+│       └── Views/             # WinUI 3 设置窗口与轮盘窗口
 ├── releases/                  # 版本发布归档目录
 ├── attachments/               # 功能演示动图与截图资源
-├── tests/                     # 基于 pywinauto 的自动化测试套件
+├── tests/                     # 触摸状态机与旧版 GUI 回归测试
+├── docs/WINUI3_TOUCH.md       # WinUI 3 / UIAccess 构建与触摸设计
 ├── CHANGELOG.md               # 版本更新日志
 ├── CONTRIBUTING.md            # 贡献指南
 ├── LICENSE                    # MIT 开源许可证
@@ -267,7 +266,7 @@ StarPie/
 本项目由开发者主导架构设计、交互逻辑规划与系统调优，并由 AI 智能体（**AI Agent - Antigravity**）协同完成代码构建、多语言支持与 18 项 GUI 自动化测试验证。
 
 ### 📌 阶段性维护说明
-- **当前状态**：StarPie v1.4.2 核心功能已完整实现并经过验证，可直接作为日常主力工具使用；
+- **当前状态**：v1.6.8 是 WPF 稳定基线；v2.0.0-preview.2 是 WinUI 3 与多指触摸迁移预览版；
 - **后续节奏**：近期因学业与求职事务，版本更新将转为阶段性维护模式。欢迎社区伙伴提交 Pull Request 共同完善。
 
 ---

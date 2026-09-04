@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <BaseOutputPath>bin\LegacyWpf\</BaseOutputPath>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>app_icon.ico</ApplicationIcon>
+    <AssemblyName>StarPie.LegacyWpf</AssemblyName>
+    <Title>StarPie Legacy WPF</Title>
+    <Product>StarPie</Product>
+    <Company>StarPie Studio</Company>
+    <Description>StarPie v1.6.8 WPF compatibility baseline</Description>
+    <Version>1.6.8</Version>
+    <AssemblyVersion>1.6.8.0</AssemblyVersion>
+    <FileVersion>1.6.8.0</FileVersion>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin\**;obj\**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="WinUI\**\*.cs" />
+    <Page Remove="WinUI\**\*.xaml" />
+    <ApplicationDefinition Remove="WinUI\**\*.xaml" />
+    <Resource Include="app_icon.ico" />
+    <Resource Include="logo.png" />
+    <None Include="app_icon.ico" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

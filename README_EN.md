@@ -6,11 +6,11 @@
 
 ### Lightweight, Fast & Configurable Radial Pie Menu for Windows 10 / 11
 
-[![Release Version](https://img.shields.io/badge/Release-v1.4.3-2563EB.svg?style=flat-square&logo=github)](https://github.com/SoftBlack42/StarPie/releases)
-[![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011%20(x64)-0078D4.svg?style=flat-square&logo=windows)](https://microsoft.com/windows)
-[![.NET](https://img.shields.io/badge/.NET-8.0%20WPF-512BD4.svg?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
+[![Release Version](https://img.shields.io/badge/Preview-v2.0.0--preview.2-2563EB.svg?style=flat-square&logo=github)](https://github.com/SoftBlack42/StarPie/releases)
+[![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011%20(x64%20%7C%20ARM64)-0078D4.svg?style=flat-square&logo=windows)](https://microsoft.com/windows)
+[![.NET](https://img.shields.io/badge/.NET%208-WinUI%203-512BD4.svg?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-10B981.svg?style=flat-square)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-19%2F19%20Passed-success.svg?style=flat-square&logo=pytest)](tests/)
+[![Tests](https://img.shields.io/badge/Touch%20Core-5%2F5%20Passed-success.svg?style=flat-square&logo=dotnet)](tests/StarPie.WinUI.InputTests/)
 [![Language](https://img.shields.io/badge/Language-zh--CN%20%7C%20zh--TW%20%7C%20en%20%7C%20ja-8B5CF6.svg?style=flat-square)](#i18n)
 [![Co-Authored](https://img.shields.io/badge/Co--Authored%20with-AI%20Agent-6366F1.svg?style=flat-square&logo=openai)](#acknowledgements)
 
@@ -28,15 +28,19 @@
 
 ## <a id="intro"></a>📖 Introduction
 
-**StarPie** is a lightweight, responsive radial mouse gesture tool (Pie Menu) built for Windows 10 and 11.
+**StarPie** is a native WinUI 3 radial mouse and multi-touch gesture tool (Pie Menu) for Windows 10 and 11.
 
 Hold and drag the right mouse button in any application to summon a fast radial menu right under your cursor. It supports 4 / 8 / 12 sector layouts, per-application profiles, hotkey recordings, quick app launching, and comprehensive visual styling.
 
 > 💡 **Design Highlights**:
-> - **Low Memory Footprint**: Native C# WPF application with ~3 to 5 MB background RAM usage;
+> - **Native Desktop UI**: .NET 8 + Windows App SDK / WinUI 3, with no embedded browser engine;
 > - **Low Latency Response**: Built on Win32 `WH_MOUSE_LL` hooks, ensuring fast response without affecting native right-click actions;
+> - **Multi-touch**: One-, two-, or three-finger long press followed by a 4-way or 8-way directional swipe;
+> - **System Styling**: Automatically follows Windows light/dark mode and accent color;
 > - **Portable & Standalone**: Self-contained single executable available (no external runtime installation required);
 > - **Single-Instance Protection**: Global mutex prevents duplicate running instances.
+
+> ⚠️ **v2 preview:** the main executable is now true WinUI 3. The touch core, radial control, theme integration, mouse trigger, and tray runtime are available; some advanced v1.6.8 settings panels are still being migrated. Desktop-wide touch capture requires an Authenticode-signed `uiAccess=true` release installed in a trusted location. See [WinUI 3 and touch architecture](docs/WINUI3_TOUCH.md).
 
 ---
 
@@ -139,7 +143,7 @@ Hold and drag the right mouse button in any application to summon a fast radial 
 
 ## <a id="download"></a>🚀 Download & Quick Start
 
-### Latest Release: `v1.4.2`
+### Latest stable: `v1.6.8` · WinUI 3 preview: `v2.0.0-preview.2`
 
 | Package | Recommended For | Description | Download |
 | :--- | :--- | :--- | :--- |
@@ -172,22 +176,23 @@ Switch interface languages anytime in `Advanced & System`:
 ## <a id="build"></a>🛠️ Development & Build
 
 ### Requirements
-- Windows 10 / 11 (x64)
+- Windows 10 / 11 (x64 / ARM64)
 - [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- Python 3.10+ (for automated GUI tests only)
 
 ### Build & Run
 ```bash
 git clone https://github.com/SoftBlack42/StarPie.git
 cd StarPie
-dotnet build WinPieGestures/WinPieGestures.csproj -c Release
-dotnet run --project WinPieGestures/WinPieGestures.csproj
+dotnet build WinPieGestures/WinPieGestures.csproj -c Release -p:Platform=x64
+dotnet run --project WinPieGestures/WinPieGestures.csproj -p:Platform=x64
+
+# Optional: build the v1.6.8 WPF compatibility baseline
+dotnet build WinPieGestures/WinPieGestures.LegacyWpf.csproj -c Release
 ```
 
-### Automated Tests (18/18 Passed 🟢)
+### Touch Core Tests (5/5 Passed 🟢)
 ```bash
-pip install pytest pywinauto
-python -m pytest tests/test_settings.py -v
+dotnet run --project tests/StarPie.WinUI.InputTests/StarPie.WinUI.InputTests.csproj -c Release
 ```
 
 ---
@@ -203,7 +208,7 @@ Feedback, bug reports, and pull requests are always welcome!
 Designed and architected by the developer, with implementation and test automation co-authored with **AI Agent - Antigravity**.
 
 ### 📌 Maintenance Note
-StarPie v1.4.2 is feature-complete and ready for daily use. Due to academic commitments, updates will follow a phased maintenance schedule.
+v1.6.8 remains the WPF stable baseline. v2.0.0-preview.2 is the WinUI 3 and multi-touch migration preview.
 
 ---
 

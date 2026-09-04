@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'WinPieGestures'">
+    <BaseIntermediateOutputPath>obj\WinUI\</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>obj\WinUI\</MSBuildProjectExtensionsPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'WinPieGestures.LegacyWpf'">
+    <BaseIntermediateOutputPath>obj\LegacyWpf\</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>obj\LegacyWpf\</MSBuildProjectExtensionsPath>
+  </PropertyGroup>
+</Project>

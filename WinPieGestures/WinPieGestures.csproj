@@ -1,30 +1,54 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <BaseOutputPath>bin\WinUI\</BaseOutputPath>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <RootNamespace>WinPieGestures</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UseWPF>true</UseWPF>
-    <UseWindowsForms>true</UseWindowsForms>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <UseWinUI>true</UseWinUI>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <Platforms>x64;ARM64</Platforms>
+    <PlatformTarget Condition="'$(Platform)' == ''">x64</PlatformTarget>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <ApplicationManifest>WinUI\app.manifest</ApplicationManifest>
+    <ApplicationManifest Condition="'$(EnableUiAccess)' == 'true'">WinUI\app.uiaccess.manifest</ApplicationManifest>
     <ApplicationIcon>app_icon.ico</ApplicationIcon>
     <AssemblyName>StarPie</AssemblyName>
     <Title>StarPie</Title>
     <Product>StarPie</Product>
     <Company>StarPie Studio</Company>
-    <Description>StarPie - 现代化高颜值 Windows 鼠标轮盘笔势与效率管理系统</Description>
-    <Version>1.6.8</Version>
-    <AssemblyVersion>1.6.8.0</AssemblyVersion>
-    <FileVersion>1.6.8.0</FileVersion>
+    <Description>StarPie - WinUI 3 原生触摸轮盘与效率管理系统</Description>
+    <Version>2.0.0-preview.2</Version>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.0.0.0</FileVersion>
     <ServerGarbageCollection>false</ServerGarbageCollection>
     <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultPageItems>false</EnableDefaultPageItems>
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
   </PropertyGroup>
 
   <ItemGroup>
-    <Resource Include="app_icon.ico" />
-    <Resource Include="logo.png" />
-    <None Include="app_icon.ico" CopyToOutputDirectory="PreserveNewest" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.4.0" />
+    <PackageReference Include="System.Drawing.Common" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ApplicationDefinition Include="WinUI\App.xaml" />
+    <Page Include="WinUI\Views\SettingsWindow.xaml" />
+    <Compile Include="WinUI\**\*.cs" />
+    <Compile Include="ActionItem.cs" />
+    <Compile Include="AppConfig.cs" />
+    <Compile Include="CustomColorPreset.cs" />
+    <Compile Include="GestureMapping.cs" />
+    <Compile Include="TriggerConfig.cs" />
+    <Compile Include="WheelProfile.cs" />
+    <Content Include="app_icon.ico" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="logo.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

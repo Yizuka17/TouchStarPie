@@ -24,10 +24,10 @@
 - **开源仓库**：GitHub `SoftBlack42/StarPie`。
 
 ### 1.2 产品三大工程红线 (Core Non-Negotiables)
-1. **极致轻量 (Ultra-Lightweight)**：
-   - 进程常驻后台静默运行，空闲内存占用必须严格控制在 **3MB ~ 8MB** 之间；
-   - 杜绝引入重量级第三方 UI 库（如 Electron、MAUI、Heavy Chromium），纯基于原生 **.NET 8 WPF + Win32 P/Invoke API** 深度调优；
-   - 绘图画刷、笔刷必须显式调用 `Freezable.Freeze()` 消除内存泄漏与 GC 抖动。
+1. **原生与可量化的轻量化 (Native & Measurable)**：
+   - v2 主程序纯基于 **.NET 8 + Windows App SDK / WinUI 3 + Win32 P/Invoke**，杜绝 Electron、MAUI 和内嵌 Chromium；
+   - 旧版 3MB ~ 8MB 是 WPF 基线，不得当作 WinUI 3 运行时的不现实硬指标。后续发布必须分别量测托盘空闲和设置窗口打开时的 Private Working Set，严防版本间回退；
+   - WinUI 视觉对象要复用、窗口隐藏后不得保持无用的订阅或动画。WPF `Freezable.Freeze()` 规则仅适用于 LegacyWpf 兼容工程。
 2. **零延迟与极致丝滑 (Zero Latency & 60/120 FPS Fluidity)**：
    - 鼠标右键/中键/侧键按下到轮盘完全呈现场景延迟必须 **< 16ms**；
    - 扇区高亮动画与光晕过渡采用贝塞尔平滑插值，杜绝卡顿与掉帧；
@@ -43,8 +43,16 @@
 ### 2.1 目录结构全景
 ```text
 g:\Users\2 Better\Desktop\design\
-├── WinPieGestures/                # 主工程源码目录 (.NET 8.0 WPF)
-│   ├── WinPieGestures.csproj      # 项目配置文件 (版本号、依赖与打包参数)
+├── WinPieGestures/                # .NET 8 桌面应用源码
+│   ├── WinPieGestures.csproj      # v2 WinUI 3 主工程
+│   ├── WinPieGestures.LegacyWpf.csproj # v1.6.8 WPF 兼容基线，非主入口
+│   ├── WinUI/                     # v2 原生 WinUI 3 实现
+│   │   ├── App.xaml(.cs)          # 应用入口、单实例与运行时生命周期
+│   │   ├── Views/                  # 设置窗口与不抢焦点轮盘窗口
+│   │   ├── Controls/               # WinUI 扇区几何与触摸优化轮盘
+│   │   ├── Input/                  # 1/2/3 指识别、全局触摸、回放与鼠标钩子
+│   │   └── Services/               # 配置、主题、执行、托盘与轮盘协调
+│   ├── App.xaml / App.xaml.cs     # v1.6.8 WPF 兼容源码
 │   ├── App.xaml / App.xaml.cs     # 应用启动入口、单例互斥锁、托盘图标生命周期
 │   ├── RadialWindow.xaml(.cs)     # 核心悬浮轮盘窗口 (硬件加速透明渲染、高频动画)
 │   ├── SettingsWindow.xaml(.cs)   # 控制台主界面 (四卡片现代化配置面板、实时交互画布)
@@ -92,10 +100,18 @@ g:\Users\2 Better\Desktop\design\
 
 ## 3. ⚙️ 核心技术机制与避坑规范
 
+### 3.0 v2 WinUI 3 与全局触摸约束
+- **主程序边界**：`WinPieGestures.csproj` 禁止重新引入 `UseWPF`、`System.Windows.*` 或 WPF XAML；必须保持 `UseWinUI=true` 与 `WindowsPackageType=None`。旧实现只能由 `WinPieGestures.LegacyWpf.csproj` 编译。
+- **触摸输入线程**：`GlobalTouchService` 的消息窗口只做指针数据采集和状态转换，UI 显示通过 DispatcherQueue 切回主线程；禁止在消息回调中做 IO、等待或动作执行。
+- **多指判定**：只有当同一序列的稳定触点数等于已启用的 1/2/3 指配置时才可进入长按；方向以所有活跃触点的质心位移计算，不得使用任意单指代替。
+- **未命中回放**：未达长按时间、超过长按抖动容差或指数未启用时，必须使用 `InjectTouchInput` 恢复原触摸序列，不得吞掉普通点按和滚动。
+- **UIAccess 强约束**：`RegisterPointerInputTarget(PT_TOUCH)` 是全桌面触摸的正式入口，要求签名的 `uiAccess=true` 发行包并安装到 `%ProgramFiles%` 等受信任位置。开发构建使用 `app.manifest` 且必须安全失败；生产签名流水线才可启用 `-p:EnableUiAccess=true`。
+- **系统主题**：主题和强调色由 `SystemThemeService` 唯一管理，监听 `UISettings.ColorValuesChanged`。轮盘默认使用系统强调色，必须在深/浅色背景下保持边界和文字对比度。
+
 ### 3.1 极坐标分区与扇区命中测试 (Hit-Testing)
 - **极坐标基准**：
   $$\theta = \text{atan2}(\Delta y, \Delta x) \in [-\pi, \pi]$$
-  角度 $0$ 为右侧，$\pi/2$ 为正下方（WPF 坐标系 Y 轴向下）。
+  角度 $0$ 为右侧，$\pi/2$ 为正下方（WinUI/WPF 屏幕坐标系 Y 轴向下）。
 - **一级轮盘与外圈子环 (Outer Sub-Ring)**：
   根据扇区数量 $N \in \{4, 8, 12\}$ 均匀划分扇区角度 $\Delta \theta = 2\pi / N$，扇区中心角 $\theta_i = -\pi/2 + i \cdot \Delta \theta$。
 - **蜂窝扇 (Honeycomb Fan)**：
@@ -113,6 +129,7 @@ g:\Users\2 Better\Desktop\design\
   遇到多位数值（如 `"100"`、`"1920"`）或字符串时，采用 `KEYEVENTF_UNICODE` 字符流逐字符发送，完美规避输入法阻断。
 
 ### 3.3 快捷键录制框 (`HotkeyRecorderBox`) 焦点规范
+- 本节是 LegacyWpf 兼容控件的历史规则。迁移到 WinUI 3 时必须使用 WinUI 的 `PreviewKeyDown` / `GettingFocus` 等价机制，不得将 WPF `KeyboardNavigation` 类引入主工程。
 - **禁止 WPF 默认焦点跳转**：
   `Tab` 是 WPF 系统的焦点切换键。在 `HotkeyRecorderBox` 控件中必须在构造函数中执行：
   ```csharp
@@ -145,29 +162,39 @@ g:\Users\2 Better\Desktop\design\
 ## 4. 🔄 代码生成、编译与发布流水线
 
 ### 4.1 代码构建与修改原则
-- **优先直接维护 `WinPieGestures/` 源码**：项目源码已完整解耦，可以直接在 `WinPieGestures` 中进行修改、扩展与调试。
+- **优先直接维护 `WinPieGestures/WinUI/` 源码**：v2 新功能与修复不得只改 WPF 兼容基线。共享配置模型位于 `WinPieGestures/` 根目录。
+- **WPF 兼容边界**：`WinPieGestures.LegacyWpf.csproj` 用于对照旧功能与渐进迁移，不是新版发布入口。
 - **流水线工具 `scratch/Decompiler/Program.cs`**：当需要批量从基线生成或大范围重构时，同步维护 `Program.cs` 并通过 `dotnet run --project scratch/Decompiler` 生成源码。
 
 ### 4.2 标准构建与发布命令集
 ```powershell
-# 1. 编译 Release 版本并校验 0 错误
-dotnet build "g:\Users\2 Better\Desktop\design\WinPieGestures" -c Release
+# 1. 编译 WinUI 3 Release x64 并校验 0 错误
+dotnet build ".\WinPieGestures\WinPieGestures.csproj" -c Release -p:Platform=x64
 
-# 2. 发布轻量版 (Lightweight, 需本地 .NET 8 运行时, 体积 ~2.5MB)
-dotnet publish "g:\Users\2 Better\Desktop\design\WinPieGestures" -c Release -r win-x64 --no-self-contained -o "g:\Users\2 Better\Desktop\design\releases\vX.Y.Z\Lightweight"
+# 2. 发布框架依赖版 (Windows App SDK / .NET 需由目标环境提供)
+dotnet publish ".\WinPieGestures\WinPieGestures.csproj" -c Release -r win-x64 --no-self-contained -p:Platform=x64 -p:WindowsAppSDKSelfContained=false -o ".\releases\vX.Y.Z\Lightweight"
 
-# 3. 发布独立免安装版 (Standalone, 自带运行时, 单文件绿色版, 体积 ~65MB)
-dotnet publish "g:\Users\2 Better\Desktop\design\WinPieGestures" -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "g:\Users\2 Better\Desktop\design\releases\vX.Y.Z\Standalone"
+# 3. 发布 WinUI 3 独立非 MSIX 版
+dotnet publish ".\WinPieGestures\WinPieGestures.csproj" -c Release -r win-x64 --self-contained true -p:Platform=x64 -p:WindowsAppSDKSelfContained=true -p:EnableMsixTooling=true -p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true -o ".\releases\vX.Y.Z\Standalone"
 
 # 4. 自动化打包生成 ZIP 压缩归档
-powershell -Command "Compress-Archive -Path 'g:\Users\2 Better\Desktop\design\releases\vX.Y.Z\Lightweight\*' -DestinationPath 'g:\Users\2 Better\Desktop\design\releases\vX.Y.Z\StarPie-vX.Y.Z-Lightweight-win-x64.zip' -Force; Compress-Archive -Path 'g:\Users\2 Better\Desktop\design\releases\vX.Y.Z\Standalone\*' -DestinationPath 'g:\Users\2 Better\Desktop\design\releases\vX.Y.Z\StarPie-vX.Y.Z-Standalone-win-x64.zip' -Force"
+Compress-Archive -Path '.\releases\vX.Y.Z\Lightweight\*' -DestinationPath '.\releases\vX.Y.Z\StarPie-vX.Y.Z-Lightweight-win-x64.zip' -Force
+Compress-Archive -Path '.\releases\vX.Y.Z\Standalone\*' -DestinationPath '.\releases\vX.Y.Z\StarPie-vX.Y.Z-Standalone-win-x64.zip' -Force
+
+# 5. 生产 UIAccess 发布只允许在签名流水线执行，不得散发未签名产物
+# 本机 UIAccess 包必须使用展开式自包含发布（PublishSingleFile=false），随后在最终启动器中写入 UIAccess 清单、签名并安装至 Program Files。
+
+# 6. 本机 UIAccess 测试签名（固定 10 年期证书指纹）
+.\scripts\Sign-StarPie.ps1 '.\releases\vX.Y.Z\SignedLocal\Expanded\StarPie.exe' -EnableUiAccess
 ```
+
+本机测试证书的指纹、备份位置和安全约束记录在 `docs/WINUI3_TOUCH.md`。私钥 PFX 及 DPAPI 密码备份严禁进入仓库或发布包。
 
 ### 4.3 版本号同步四要素检查清单 (Version Sync Checklist)
 每次发布新版本 `vX.Y.Z` 时，必须同步更新以下 4 处位置：
 1. `WinPieGestures.csproj`：`<Version>X.Y.Z</Version>`, `<AssemblyVersion>X.Y.Z.0</AssemblyVersion>`, `<FileVersion>X.Y.Z.0</FileVersion>`
-2. `SettingsWindow.xaml`：左侧边栏底部版本文字 `SidebarVersionText` 与关于卡片里程碑
-3. `SettingsWindow.xaml.cs`：托盘右键菜单标题文本 `StarPie vX.Y.Z`
+2. `WinUI/Views/SettingsWindow.xaml`：右上角版本文字；
+3. `WinUI/Services/TrayIconService.cs`：托盘提示与菜单版本文字；
 4. `CHANGELOG.md`：在顶部添加规范的 `## [vX.Y.Z] - YYYY-MM-DD` 详细变更日志
 
 ---
@@ -196,7 +223,7 @@ powershell -Command "Compress-Archive -Path 'g:\Users\2 Better\Desktop\design\re
 
 ---
 
-## 6. 📜 版本里程碑演进图谱 (v1.0.0 ~ v1.6.8)
+## 6. 📜 版本里程碑演进图谱 (v1.0.0 ~ v2.0.0-preview.2)
 
 | 版本 | 发布日期 | 核心突破与重要变更 |
 | :--- | :--- | :--- |
@@ -215,6 +242,8 @@ powershell -Command "Compress-Archive -Path 'g:\Users\2 Better\Desktop\design\re
 | **v1.6.6** | 2026-09-03 | 原生 OCR 与架构解耦升级：Windows 10/11 原生 WinRT 离线 OCR 引擎与多模态 AI 接口支持、动作执行与图标来源彻底解耦、Shell 降权启动解决 UIPI 拖放失效、打开文件夹支持系统虚拟路径 |
 | **v1.6.7** | 2026-09-03 | 综合优化迭代：原生 OCR 流生命周期与语言包环境诊断修复、ScreenHelper 统管 PerMonitorV2 与渲染帧二次物理校准解决多屏唤起漂移、多级轮盘卡片迁入 Tab 3、新增核心圆唤醒死区灵敏度滑块、二级轮盘外观预览单扇区聚焦消除遮挡 |
 | **v1.6.8** | 2026-09-04 | 交互与手感精进：画布缩放工具栏同级重构彻底修复点击失效、快捷键构建器增加 Pause 与实时检索过滤、录制旁新增临时暂停热键、右上角增设 GitHub 贡献者致谢折叠卡片、蜂窝扇展开角度锁定与迟滞容差防掉帧手感优化、鼠标手势关闭时自适应折叠收纳配置 |
+| **v2.0.0-preview.1** | 2026-09-04 | 主工程迁移为 .NET 8 WinUI 3，新增 1/2/3 指长按 + 4/8 向划动、未命中触摸回放、系统深浅色/强调色跟随、WinUI 扇区与 Acrylic 材质、高 DPI 透明轮盘窗口；保留 LegacyWpf 对照工程。 |
+| **v2.0.0-preview.2** | 2026-09-04 | 修复全局触摸截留与注入参数错误，改为首帧实时透传、识别成功后才接管；悬浮轮盘改用逐像素 Alpha 合成消除黑色方框；恢复四页 WinUI 设置、动作编辑、轮盘几何、自定义配色、场景隔离与配置导入导出。 |
 
 ---
 
@@ -233,7 +262,7 @@ graph TD
 1. **需求理解与方案规划**：确认修改范围，严防破坏既有轮盘手感、内存优化与场景隔离逻辑；
 2. **规范核对**：检查样式是否自包含、快捷键是否支持扫描码、命中判定是否使用极坐标、文字对比度是否达标；
 3. **精准编码**：修改对应模块，保持命名规范与注释完整性；
-4. **编译与验证**：执行 `dotnet build WinPieGestures -c Release` 确保 **0 错误**；
+4. **编译与验证**：执行 `dotnet build WinPieGestures/WinPieGestures.csproj -c Release -p:Platform=x64` 确保 **0 错误**，触摸改动还必须运行 `StarPie.WinUI.InputTests`；
 5. **打包与日志归档**：
    - 运行轻量版与独立版发布命令；
    - 生成 `StarPie-vX.Y.Z-Lightweight-win-x64.zip` 与 `StarPie-vX.Y.Z-Standalone-win-x64.zip`；

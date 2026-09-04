@@ -13,6 +13,11 @@
 *.dll
 *.pdb
 *.zip
+*.pfx
+*.p12
+*.pvk
+*.snk
+*.password.dpapi.xml
 releases/**/bin/
 releases/**/StarPie-*-Standalone-*/
 releases/**/StarPie-*-Lightweight/

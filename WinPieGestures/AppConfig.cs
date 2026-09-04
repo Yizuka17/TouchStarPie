@@ -10,6 +10,9 @@ public class AppConfig
 
 	public TriggerConfig Trigger { get; set; } = new TriggerConfig();
 
+	/// <summary>Single-, two-, and three-finger long-press plus directional swipe trigger.</summary>
+	public TouchTriggerConfig TouchTrigger { get; set; } = new TouchTriggerConfig();
+
 	public double DragThreshold { get; set; } = 25.0;
 
 	/// <summary>核心圆死区唤醒灵敏度（有效判定半径，像素）。光标在此半径内视为停留在中心核圆，可触发中心动作或静默取消。</summary>
@@ -58,6 +61,12 @@ public class AppConfig
 	public double OuterEscapeDistance { get; set; } = 186.0;
 
 	public string AppTheme { get; set; } = "System";
+
+	/// <summary>Use the current Windows accent color for selection and focus feedback.</summary>
+	public bool UseSystemAccentColor { get; set; } = true;
+
+	/// <summary>Fluent wheel material: "Acrylic" or "Solid".</summary>
+	public string WheelMaterial { get; set; } = "Acrylic";
 
 	public string Theme { get; set; } = "System";
 
@@ -184,6 +193,8 @@ public class AppConfig
 	public string CustomHighlightBorder { get; set; } = "#A0FFFFFF";
 
 	public string CustomText { get; set; } = "#E0FFFFFF";
+
+	public string CustomCoreBg { get; set; } = "#F20F172A";
 
 	public List<CustomColorPreset> CustomColorPresets { get; set; } = new List<CustomColorPreset>();
 

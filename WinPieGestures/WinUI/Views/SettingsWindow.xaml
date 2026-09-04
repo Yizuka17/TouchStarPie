@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="WinPieGestures.WinUI.Views.SettingsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid x:Name="RootLayout" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="64" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Padding="24,0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <FontIcon Glyph="&#xE945;" FontSize="24" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                <StackPanel>
+                    <TextBlock Text="StarPie" FontSize="20" FontWeight="SemiBold" />
+                    <TextBlock Text="原生 WinUI 3 · 鼠标与触摸轮盘" FontSize="11" Opacity="0.66" />
+                </StackPanel>
+            </StackPanel>
+            <TextBlock Grid.Column="1" Text="v2.0.0-preview.2" VerticalAlignment="Center" Opacity="0.66" />
+        </Grid>
+
+        <Grid Grid.Row="1" Padding="20" ColumnSpacing="18" MaxWidth="1320" HorizontalAlignment="Center">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="660" />
+                <ColumnDefinition Width="420" />
+            </Grid.ColumnDefinitions>
+
+            <TabView x:Name="SettingsTabs" Grid.Column="0" IsAddTabButtonVisible="False" TabWidthMode="SizeToContent">
+                <TabViewItem Header="外观与形态" IsClosable="False">
+                    <ScrollViewer HorizontalScrollMode="Disabled" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Padding="2,14,12,16">
+                            <TextBlock Text="轮盘几何" Style="{StaticResource SectionTitleStyle}" />
+                            <Border Style="{StaticResource SettingsCardStyle}">
+                                <StackPanel Spacing="14">
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="92" /></Grid.ColumnDefinitions>
+                                        <StackPanel><TextBlock Text="外圈半径" FontWeight="SemiBold" /><Slider x:Name="WheelRadiusSlider" Minimum="92" Maximum="240" StepFrequency="1" ValueChanged="WheelAppearanceSlider_OnValueChanged" /></StackPanel>
+                                        <TextBlock x:Name="WheelRadiusValueText" Grid.Column="1" VerticalAlignment="Center" TextAlignment="Right" />
+                                    </Grid>
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="92" /></Grid.ColumnDefinitions>
+                                        <StackPanel><TextBlock Text="中心内径" FontWeight="SemiBold" /><Slider x:Name="InnerRadiusSlider" Minimum="28" Maximum="160" StepFrequency="1" ValueChanged="WheelAppearanceSlider_OnValueChanged" /></StackPanel>
+                                        <TextBlock x:Name="InnerRadiusValueText" Grid.Column="1" VerticalAlignment="Center" TextAlignment="Right" />
+                                    </Grid>
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="92" /></Grid.ColumnDefinitions>
+                                        <StackPanel><TextBlock Text="扇区间距" FontWeight="SemiBold" /><Slider x:Name="SectorGapSlider" Minimum="0" Maximum="16" StepFrequency="0.5" ValueChanged="WheelAppearanceSlider_OnValueChanged" /></StackPanel>
+                                        <TextBlock x:Name="SectorGapValueText" Grid.Column="1" VerticalAlignment="Center" TextAlignment="Right" />
+                                    </Grid>
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="92" /></Grid.ColumnDefinitions>
+                                        <StackPanel><TextBlock Text="图标大小" FontWeight="SemiBold" /><Slider x:Name="IconSizeSlider" Minimum="14" Maximum="32" StepFrequency="1" ValueChanged="WheelAppearanceSlider_OnValueChanged" /></StackPanel>
+                                        <TextBlock x:Name="IconSizeValueText" Grid.Column="1" VerticalAlignment="Center" TextAlignment="Right" />
+                                    </Grid>
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="92" /></Grid.ColumnDefinitions>
+                                        <StackPanel><TextBlock Text="文字字号" FontWeight="SemiBold" /><Slider x:Name="FontSizeSlider" Minimum="9" Maximum="18" StepFrequency="0.5" ValueChanged="WheelAppearanceSlider_OnValueChanged" /></StackPanel>
+                                        <TextBlock x:Name="FontSizeValueText" Grid.Column="1" VerticalAlignment="Center" TextAlignment="Right" />
+                                    </Grid>
+                                    <ToggleSwitch x:Name="ShowTextToggle" Header="显示扇区名称" Toggled="ShowTextToggle_OnToggled" />
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="160" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                        <TextBlock Text="中心标题" VerticalAlignment="Center" FontWeight="SemiBold" />
+                                        <TextBox x:Name="CoreTitleTextBox" Grid.Column="1" LostFocus="CoreTitleTextBox_OnLostFocus" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Text="系统主题与配色" Style="{StaticResource SectionTitleStyle}" Margin="0,8,0,12" />
+                            <Border Style="{StaticResource SettingsCardStyle}">
+                                <StackPanel Spacing="14">
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="180" /></Grid.ColumnDefinitions>
+                                        <StackPanel><TextBlock Text="应用主题" FontWeight="SemiBold" /><TextBlock Text="实时跟随系统深色/浅色模式" FontSize="12" Opacity="0.66" /></StackPanel>
+                                        <ComboBox x:Name="ThemeComboBox" Grid.Column="1" SelectionChanged="ThemeComboBox_OnSelectionChanged">
+                                            <ComboBoxItem Content="跟随系统" Tag="System" /><ComboBoxItem Content="浅色" Tag="Light" /><ComboBoxItem Content="深色" Tag="Dark" />
+                                        </ComboBox>
+                                    </Grid>
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="180" /></Grid.ColumnDefinitions>
+                                        <TextBlock Text="轮盘材质" VerticalAlignment="Center" FontWeight="SemiBold" />
+                                        <ComboBox x:Name="MaterialComboBox" Grid.Column="1" SelectionChanged="MaterialComboBox_OnSelectionChanged">
+                                            <ComboBoxItem Content="Acrylic 亚克力" Tag="Acrylic" /><ComboBoxItem Content="Mica 纯净" Tag="Mica" /><ComboBoxItem Content="Solid 实色" Tag="Solid" />
+                                        </ComboBox>
+                                    </Grid>
+                                    <ToggleSwitch x:Name="SystemAccentToggle" Header="使用 Windows 系统强调色" Toggled="SystemAccentToggle_OnToggled" />
+                                    <Grid x:Name="CustomColorPanel" ColumnSpacing="10" RowSpacing="10">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                        <TextBox x:Name="SectorColorTextBox" Header="扇区色（#AARRGGBB）" LostFocus="CustomColorTextBox_OnLostFocus" />
+                                        <TextBox x:Name="BorderColorTextBox" Grid.Column="1" Header="边界色" LostFocus="CustomColorTextBox_OnLostFocus" />
+                                        <TextBox x:Name="HighlightColorTextBox" Grid.Row="1" Header="高亮色" LostFocus="CustomColorTextBox_OnLostFocus" />
+                                        <TextBox x:Name="TextColorTextBox" Grid.Row="1" Grid.Column="1" Header="文字色" LostFocus="CustomColorTextBox_OnLostFocus" />
+                                        <TextBox x:Name="CoreColorTextBox" Grid.Row="2" Header="中心色" LostFocus="CustomColorTextBox_OnLostFocus" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabViewItem>
+
+                <TabViewItem Header="手势与动作" IsClosable="False">
+                    <ScrollViewer HorizontalScrollMode="Disabled" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Padding="2,14,12,16">
+                            <TextBlock Text="动作轮盘" Style="{StaticResource SectionTitleStyle}" />
+                            <Border Style="{StaticResource SettingsCardStyle}">
+                                <StackPanel Spacing="12">
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="160" /></Grid.ColumnDefinitions>
+                                        <StackPanel><TextBlock Text="主轮盘扇区数" FontWeight="SemiBold" /><TextBlock Text="鼠标支持 4 / 8 / 12 向" FontSize="12" Opacity="0.66" /></StackPanel>
+                                        <ComboBox x:Name="SectorCountComboBox" Grid.Column="1" SelectionChanged="SectorCountComboBox_OnSelectionChanged">
+                                            <ComboBoxItem Content="4 扇区" Tag="4" /><ComboBoxItem Content="8 扇区" Tag="8" /><ComboBoxItem Content="12 扇区" Tag="12" />
+                                        </ComboBox>
+                                    </Grid>
+                                    <ToggleSwitch x:Name="MultiTierToggle" Header="启用二级级联动作" Toggled="MultiTierToggle_OnToggled" />
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="160" /></Grid.ColumnDefinitions>
+                                        <TextBlock Text="二级菜单形态" VerticalAlignment="Center" FontWeight="SemiBold" />
+                                        <ComboBox x:Name="SubmenuStyleComboBox" Grid.Column="1" SelectionChanged="SubmenuStyleComboBox_OnSelectionChanged">
+                                            <ComboBoxItem Content="外圈子环" Tag="Wheel" /><ComboBoxItem Content="蜂窝扇" Tag="Honeycomb" />
+                                        </ComboBox>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Text="方向动作映射" Style="{StaticResource SectionTitleStyle}" Margin="0,8,0,12" />
+                            <Border Style="{StaticResource SettingsCardStyle}" Padding="8">
+                                <ListView x:Name="ActionListView" SelectionMode="None">
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Padding="10,7" ColumnSpacing="12">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="56" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Direction}" VerticalAlignment="Center" FontWeight="SemiBold" />
+                                                <StackPanel Grid.Column="1"><TextBlock Text="{Binding Name}" FontWeight="SemiBold" /><TextBlock Text="{Binding Summary}" FontSize="12" Opacity="0.66" TextTrimming="CharacterEllipsis" /></StackPanel>
+                                                <Button Grid.Column="2" Content="编辑" Tag="{Binding Index}" Click="EditActionButton_OnClick" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabViewItem>
+
+                <TabViewItem Header="触发与场景" IsClosable="False">
+                    <ScrollViewer HorizontalScrollMode="Disabled" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Padding="2,14,12,16">
+                            <TextBlock Text="鼠标触发" Style="{StaticResource SectionTitleStyle}" />
+                            <Border Style="{StaticResource SettingsCardStyle}">
+                                <StackPanel Spacing="14">
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="180" /></Grid.ColumnDefinitions>
+                                        <TextBlock Text="触发按键" VerticalAlignment="Center" FontWeight="SemiBold" />
+                                        <ComboBox x:Name="MouseButtonComboBox" Grid.Column="1" SelectionChanged="MouseButtonComboBox_OnSelectionChanged">
+                                            <ComboBoxItem Content="鼠标右键" Tag="RightButton" /><ComboBoxItem Content="鼠标中键" Tag="MiddleButton" /><ComboBoxItem Content="侧键 1" Tag="XButton1" /><ComboBoxItem Content="侧键 2" Tag="XButton2" />
+                                        </ComboBox>
+                                    </Grid>
+                                    <ToggleSwitch x:Name="MouseLongPressToggle" Header="鼠标长按后也可呼出轮盘" Toggled="MouseLongPressToggle_OnToggled" />
+                                    <Grid ColumnSpacing="16"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="100" /></Grid.ColumnDefinitions><StackPanel><TextBlock Text="拖动阈值" FontWeight="SemiBold" /><Slider x:Name="MouseThresholdSlider" Minimum="8" Maximum="120" StepFrequency="1" ValueChanged="MouseSlider_OnValueChanged" /></StackPanel><TextBlock x:Name="MouseThresholdValueText" Grid.Column="1" VerticalAlignment="Center" TextAlignment="Right" /></Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Text="触摸手势" Style="{StaticResource SectionTitleStyle}" Margin="0,8,0,12" />
+                            <Border Style="{StaticResource SettingsCardStyle}">
+                                <StackPanel Spacing="14">
+                                    <ToggleSwitch x:Name="TouchEnabledToggle" Header="全局多指长按 + 方向划动" OffContent="关闭" OnContent="开启" Toggled="TouchEnabledToggle_OnToggled" />
+                                    <InfoBar IsOpen="True" IsClosable="False" Severity="Informational" Message="普通点击、滚动和缩放会从第一帧实时透传；仅在长按成立后由 StarPie 接管。" />
+                                    <StackPanel Orientation="Horizontal" Spacing="20"><CheckBox x:Name="OneFingerCheckBox" Content="单指" Click="FingerCheckBox_OnClick" /><CheckBox x:Name="TwoFingerCheckBox" Content="双指" Click="FingerCheckBox_OnClick" /><CheckBox x:Name="ThreeFingerCheckBox" Content="三指" Click="FingerCheckBox_OnClick" /></StackPanel>
+                                    <Grid ColumnSpacing="16"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions><StackPanel><TextBlock Text="长按时长" FontWeight="SemiBold" /><Slider x:Name="LongPressSlider" Minimum="250" Maximum="900" StepFrequency="10" ValueChanged="TouchSlider_OnValueChanged" /></StackPanel><TextBlock x:Name="LongPressValueText" Grid.Column="1" VerticalAlignment="Center" TextAlignment="Right" /></Grid>
+                                    <Grid ColumnSpacing="16"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions><StackPanel><TextBlock Text="长按抖动容差" FontWeight="SemiBold" /><Slider x:Name="ToleranceSlider" Minimum="6" Maximum="48" StepFrequency="1" ValueChanged="TouchSlider_OnValueChanged" /></StackPanel><TextBlock x:Name="ToleranceValueText" Grid.Column="1" VerticalAlignment="Center" TextAlignment="Right" /></Grid>
+                                    <Grid ColumnSpacing="16"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions><StackPanel><TextBlock Text="划动触发距离" FontWeight="SemiBold" /><Slider x:Name="SwipeThresholdSlider" Minimum="18" Maximum="120" StepFrequency="1" ValueChanged="TouchSlider_OnValueChanged" /></StackPanel><TextBlock x:Name="SwipeThresholdValueText" Grid.Column="1" VerticalAlignment="Center" TextAlignment="Right" /></Grid>
+                                    <Grid ColumnSpacing="16"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="150" /></Grid.ColumnDefinitions><TextBlock Text="触摸方向数量" VerticalAlignment="Center" FontWeight="SemiBold" /><ComboBox x:Name="DirectionCountComboBox" Grid.Column="1" SelectionChanged="DirectionCountComboBox_OnSelectionChanged"><ComboBoxItem Content="4 方向" Tag="4" /><ComboBoxItem Content="8 方向" Tag="8" /></ComboBox></Grid>
+                                    <InfoBar x:Name="TouchStatusInfoBar" IsOpen="True" IsClosable="False" Title="触摸捕获状态" />
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Text="场景隔离" Style="{StaticResource SectionTitleStyle}" Margin="0,8,0,12" />
+                            <Border Style="{StaticResource SettingsCardStyle}">
+                                <StackPanel Spacing="12">
+                                    <Grid ColumnSpacing="16"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="180" /></Grid.ColumnDefinitions><TextBlock Text="隔离模式" VerticalAlignment="Center" FontWeight="SemiBold" /><ComboBox x:Name="IsolationModeComboBox" Grid.Column="1" SelectionChanged="IsolationModeComboBox_OnSelectionChanged"><ComboBoxItem Content="黑名单" Tag="Blacklist" /><ComboBoxItem Content="仅白名单" Tag="Whitelist" /></ComboBox></Grid>
+                                    <ToggleSwitch x:Name="DisableFullscreenToggle" Header="全屏独占应用中暂停轮盘" Toggled="SceneToggle_OnToggled" />
+                                    <ToggleSwitch x:Name="OuterEscapeToggle" Header="启用外甩脱离取消" Toggled="SceneToggle_OnToggled" />
+                                    <Grid ColumnSpacing="16"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions><StackPanel><TextBlock Text="外甩取消距离" FontWeight="SemiBold" /><Slider x:Name="OuterEscapeDistanceSlider" Minimum="120" Maximum="420" StepFrequency="2" ValueChanged="SceneSlider_OnValueChanged" /></StackPanel><TextBlock x:Name="OuterEscapeDistanceValueText" Grid.Column="1" VerticalAlignment="Center" TextAlignment="Right" /></Grid>
+                                    <TextBox x:Name="BlacklistTextBox" Header="黑名单进程（逗号分隔）" LostFocus="SceneTextBox_OnLostFocus" />
+                                    <TextBox x:Name="WhitelistTextBox" Header="白名单进程（逗号分隔，优先级最高）" LostFocus="SceneTextBox_OnLostFocus" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabViewItem>
+
+                <TabViewItem Header="高级与系统" IsClosable="False">
+                    <ScrollViewer HorizontalScrollMode="Disabled" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Padding="2,14,12,16">
+                            <TextBlock Text="配置与备份" Style="{StaticResource SectionTitleStyle}" />
+                            <Border Style="{StaticResource SettingsCardStyle}">
+                                <StackPanel Spacing="14">
+                                    <TextBlock Text="导入/导出包含动作映射、轮盘几何、自定义配色、触摸与场景配置。" TextWrapping="Wrap" Opacity="0.72" />
+                                    <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="导出配置" Click="ExportConfigButton_OnClick" /><Button Content="导入配置" Click="ImportConfigButton_OnClick" /><Button Content="打开日志目录" Click="OpenLogFolderButton_OnClick" /></StackPanel>
+                                    <InfoBar x:Name="ConfigOperationInfoBar" IsOpen="False" IsClosable="True" />
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Text="运行与兼容" Style="{StaticResource SectionTitleStyle}" Margin="0,8,0,12" />
+                            <Border Style="{StaticResource SettingsCardStyle}">
+                                <StackPanel Spacing="14">
+                                    <Grid ColumnSpacing="16"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="180" /></Grid.ColumnDefinitions><TextBlock Text="语言" VerticalAlignment="Center" FontWeight="SemiBold" /><ComboBox x:Name="LanguageComboBox" Grid.Column="1" SelectionChanged="LanguageComboBox_OnSelectionChanged"><ComboBoxItem Content="自动" Tag="Auto" /><ComboBoxItem Content="简体中文" Tag="zh-CN" /><ComboBoxItem Content="繁體中文" Tag="zh-TW" /><ComboBoxItem Content="English" Tag="en-US" /><ComboBoxItem Content="日本語" Tag="ja-JP" /></ComboBox></Grid>
+                                    <ToggleSwitch x:Name="AutoUpdateToggle" Header="自动检查更新" Toggled="AdvancedToggle_OnToggled" />
+                                    <InfoBar IsOpen="True" IsClosable="False" Severity="Success" Title="UIAccess 本机签名" Message="十年期证书与本机 DPAPI 私钥备份继续沿用，不会写入仓库或发布包。" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabViewItem>
+            </TabView>
+
+            <Border Grid.Column="1" Style="{StaticResource SettingsCardStyle}" Padding="16" VerticalAlignment="Top">
+                <StackPanel Spacing="10">
+                    <Grid><TextBlock Text="轮盘实时预览" FontSize="16" FontWeight="SemiBold" /><Button Content="测试悬浮轮盘" HorizontalAlignment="Right" Click="ShowOverlayPreviewButton_OnClick" /></Grid>
+                    <Border Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="12" MinHeight="390">
+                        <Viewbox Stretch="Uniform" Margin="8"><ContentControl x:Name="WheelPreviewHost" /></Viewbox>
+                    </Border>
+                    <TextBlock Text="预览与实际悬浮轮盘共用同一份 WinUI 扇区控件。触摸方向按所有触点质心计算。" TextWrapping="Wrap" FontSize="12" Opacity="0.66" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>
