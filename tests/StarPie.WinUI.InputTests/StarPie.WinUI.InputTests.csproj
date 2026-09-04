@@ -7,5 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\..\WinPieGestures\WinUI\Input\TouchGestureRecognizer.cs" Link="TouchGestureRecognizer.cs" />
+    <Compile Include="..\..\WinPieGestures\WinUI\Input\RadialSelectionMath.cs" Link="RadialSelectionMath.cs" />
   </ItemGroup>
 </Project>
