@@ -7,6 +7,7 @@ static class Program
     public static int Main()
     {
         Run("8-direction quantization", DirectionQuantization);
+        Run("secondary sector quantization", SecondarySectorQuantization);
         Run("long press arms before invocation", LongPressOnlyArms);
         Run("single-finger armed swipe invokes east", SingleFingerGesture);
         Run("armed release is a no-op", ArmedReleaseDoesNothing);
@@ -26,6 +27,16 @@ static class Program
         Equal(4, TouchGestureRecognizer.QuantizeDirection(Math.PI / 2, 8), "south");
         Equal(6, TouchGestureRecognizer.QuantizeDirection(Math.PI, 8), "west");
         Equal(1, TouchGestureRecognizer.QuantizeDirection(-Math.PI / 4, 8), "north-east");
+    }
+
+    private static void SecondarySectorQuantization()
+    {
+        // East is main sector 2 in the 8-way convention. Its 45-degree parent span is
+        // divided into four children from north-east side to south-east side.
+        Equal(0, RadialSelectionMath.QuantizeSub(-Math.PI / 8 + 0.01, 2, 8, 4), "east child 0");
+        Equal(1, RadialSelectionMath.QuantizeSub(-Math.PI / 16, 2, 8, 4), "east child 1");
+        Equal(2, RadialSelectionMath.QuantizeSub(Math.PI / 16, 2, 8, 4), "east child 2");
+        Equal(3, RadialSelectionMath.QuantizeSub(Math.PI / 8 - 0.01, 2, 8, 4), "east child 3");
     }
 
     private static void LongPressOnlyArms()
