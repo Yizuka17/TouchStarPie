@@ -39,6 +39,7 @@ public sealed class AppRuntime : IDisposable
 
     public void Start()
     {
+        Wheel.Hide();
         ApplyTouchConfiguration();
         Mouse.Start();
         Tray.ShowRequested += TrayOnShowRequested;
@@ -49,7 +50,12 @@ public sealed class AppRuntime : IDisposable
 
     public void AttachSettingsWindow(SettingsWindow settingsWindow)
     {
+        if (_settingsWindow is not null)
+        {
+            _settingsWindow.Closed -= SettingsWindowOnClosed;
+        }
         _settingsWindow = settingsWindow;
+        _settingsWindow.Closed += SettingsWindowOnClosed;
     }
 
     public void ApplyTheme(FrameworkElement root) => Theme.Apply(root, Configuration.Current.AppTheme);
@@ -71,6 +77,10 @@ public sealed class AppRuntime : IDisposable
         Mouse.Updated -= Wheel.OnTouchUpdated;
         Mouse.Completed -= Wheel.OnTouchCompleted;
         Configuration.Changed -= OnConfigurationChanged;
+        if (_settingsWindow is not null)
+        {
+            _settingsWindow.Closed -= SettingsWindowOnClosed;
+        }
         Wheel.Dispose();
         Touch.Dispose();
         Mouse.Dispose();
@@ -87,10 +97,13 @@ public sealed class AppRuntime : IDisposable
         _settingsWindow?.ReloadFromConfiguration();
     }
 
+    private void SettingsWindowOnClosed(object sender, WindowEventArgs args) => Wheel.Hide();
+
     private void TrayOnShowRequested(object? sender, EventArgs args) => _settingsWindow?.ShowSettings();
 
     private void TrayOnExitRequested(object? sender, EventArgs args)
     {
+        Wheel.Hide();
         _settingsWindow?.CloseForExit();
         if (Application.Current is App app)
         {
